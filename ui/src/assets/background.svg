@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <!-- Refined color palette as specified -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1F1C" />
+      <stop offset="100%" stop-color="#181915" />
+    </linearGradient>
+    
+    <pattern id="noisePattern" width="100" height="100" patternUnits="userSpaceOnUse">
+      <path d="M0,10 Q20,20 30,0 Q50,10 70,30 Q80,40 100,20" fill="none" stroke="#F2EEC8" stroke-width="0.1" opacity="0.03" />
+      <path d="M0,50 Q20,70 40,50 Q60,30 80,50 Q90,70 100,60" fill="none" stroke="#F2EEC8" stroke-width="0.1" opacity="0.03" />
+      <path d="M20,0 Q30,30 50,50 Q70,70 80,100" fill="none" stroke="#F2EEC8" stroke-width="0.1" opacity="0.03" />
+      <path d="M70,0 Q50,40 30,60 Q10,80 0,100" fill="none" stroke="#F2EEC8" stroke-width="0.1" opacity="0.03" />
+    </pattern>
+    
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    
+    <radialGradient id="dotGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#F2EEC8" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#F2EEC8" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Base background -->
+  <rect width="800" height="600" fill="url(#bgGradient)" />
+  
+  <!-- Subtle noise texture overlay -->
+  <rect width="800" height="600" fill="url(#noisePattern)" />
+  
+  <!-- Ultra-subtle horizontal line -->
+  <line x1="0" y1="300" x2="800" y2="300" stroke="#F2EEC8" stroke-width="0.03" opacity="0.2" />
+  
+  <!-- Ultra-subtle vertical line -->
+  <line x1="400" y1="0" x2="400" y2="600" stroke="#F2EEC8" stroke-width="0.03" opacity="0.2" />
+  
+  <!-- Abstract knowledge representation - barely visible planes -->
+  <g opacity="0.15">
+    <path d="M150,150 L650,150 L550,450 L50,450 Z" fill="none" stroke="#F2EEC8" stroke-width="0.2" stroke-dasharray="1,5" />
+    <path d="M300,50 L500,50 L600,550 L200,550 Z" fill="none" stroke="#F2EEC8" stroke-width="0.2" stroke-dasharray="1,5" />
+  </g>
+  
+  <!-- Accent circle - extremely subtle -->
+  <circle cx="400" cy="300" r="200" fill="none" stroke="#F2EEC8" stroke-width="0.1" opacity="0.1" />
+  
+  <!-- Delicate knowledge web lines - more sparse and subtle -->
+  <g opacity="0.15" stroke="#F2EEC8" stroke-width="0.1">
+    <line x1="400" y1="300" x2="200" y2="150" />
+    <line x1="400" y1="300" x2="600" y2="150" />
+    <line x1="400" y1="300" x2="550" y2="450" />
+    <line x1="400" y1="300" x2="250" y2="450" />
+    <line x1="400" y1="300" x2="700" y2="300" />
+    <line x1="400" y1="300" x2="100" y2="300" />
+  </g>
+  
+  <!-- Expanded constellation points with more glow -->
+  <g filter="url(#glow)">
+    <!-- Primary constellation points -->
+    <circle cx="200" cy="150" r="0.8" fill="#F2EEC8" opacity="0.7" />
+    <circle cx="600" cy="150" r="0.8" fill="#F2EEC8" opacity="0.7" />
+    <circle cx="550" cy="450" r="0.8" fill="#F2EEC8" opacity="0.7" />
+    <circle cx="250" cy="450" r="0.8" fill="#F2EEC8" opacity="0.7" />
+    <circle cx="700" cy="300" r="0.8" fill="#F2EEC8" opacity="0.7" />
+    <circle cx="100" cy="300" r="0.8" fill="#F2EEC8" opacity="0.7" />
+    <circle cx="400" cy="300" r="1.2" fill="#F2EEC8" opacity="0.7" />
+    
+    <!-- Additional constellation points -->
+    <circle cx="350" cy="200" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="450" cy="200" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="350" cy="400" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="450" cy="400" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="300" cy="350" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="500" cy="350" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="300" cy="250" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="500" cy="250" r="0.6" fill="#F2EEC8" opacity="0.5" />
+    
+    <!-- Tertiary constellation points - smallest -->
+    <circle cx="275" cy="175" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="325" cy="175" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="375" cy="175" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="425" cy="175" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="475" cy="175" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="525" cy="175" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    
+    <circle cx="275" cy="425" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="325" cy="425" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="375" cy="425" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="425" cy="425" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="475" cy="425" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    <circle cx="525" cy="425" r="0.4" fill="#F2EEC8" opacity="0.4" />
+    
+    <!-- Random scattered stars -->
+    <circle cx="150" cy="100" r="0.3" fill="#F2EEC8" opacity="0.6" />
+    <circle cx="220" cy="180" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="290" cy="120" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="650" cy="100" r="0.3" fill="#F2EEC8" opacity="0.6" />
+    <circle cx="580" cy="180" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="510" cy="120" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="150" cy="500" r="0.3" fill="#F2EEC8" opacity="0.6" />
+    <circle cx="220" cy="420" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="290" cy="480" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="650" cy="500" r="0.3" fill="#F2EEC8" opacity="0.6" />
+    <circle cx="580" cy="420" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    <circle cx="510" cy="480" r="0.3" fill="#F2EEC8" opacity="0.5" />
+    
+    <!-- Additional scattered micro points -->
+    <circle cx="180" cy="240" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="210" cy="280" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="240" cy="220" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="620" cy="240" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="590" cy="280" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="560" cy="220" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="180" cy="360" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="210" cy="320" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="240" cy="380" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="620" cy="360" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="590" cy="320" r="0.2" fill="#F2EEC8" opacity="0.3" />
+    <circle cx="560" cy="380" r="0.2" fill="#F2EEC8" opacity="0.3" />
+  </g>
+  
+  <!-- Subtle glow points -->
+  <circle cx="400" cy="300" r="40" fill="url(#dotGlow)" opacity="0.05" />
+  <circle cx="200" cy="150" r="20" fill="url(#dotGlow)" opacity="0.03" />
+  <circle cx="600" cy="150" r="20" fill="url(#dotGlow)" opacity="0.03" />
+  <circle cx="250" cy="450" r="20" fill="url(#dotGlow)" opacity="0.03" />
+  <circle cx="550" cy="450" r="20" fill="url(#dotGlow)" opacity="0.03" />
+  
+  <!-- Extremely subtle calm water-like horizon lines -->
+  <g stroke="#F2EEC8" stroke-width="0.05" opacity="0.08">
+    <path d="M0,400 Q200,398 400,400 T800,400" />
+    <path d="M0,410 Q200,412 400,410 T800,410" />
+    <path d="M0,420 Q200,418 400,420 T800,420" />
+  </g>
+  
+  <!-- Minimalist, barely-there grid in bottom right -->
+  <g opacity="0.07">
+    <line x1="650" y1="500" x2="700" y2="500" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="650" y1="510" x2="700" y2="510" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="650" y1="520" x2="700" y2="520" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="650" y1="500" x2="650" y2="520" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="660" y1="500" x2="660" y2="520" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="670" y1="500" x2="670" y2="520" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="680" y1="500" x2="680" y2="520" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="690" y1="500" x2="690" y2="520" stroke="#F2EEC8" stroke-width="0.05" />
+    <line x1="700" y1="500" x2="700" y2="520" stroke="#F2EEC8" stroke-width="0.05" />
+  </g>
+</svg>
