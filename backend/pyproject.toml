@@ -6,7 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "brave-search>=0.1.8",
+    "fastapi-geolocation>=1.0.1",
     "fastapi>=0.115.8",
     "litellm>=1.61.16",
     "uvicorn>=0.34.0",
+    "geoip2>=5.0.1",
+    "redis>=5.2.1",
 ]

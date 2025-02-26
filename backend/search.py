@@ -9,23 +9,22 @@ from string import Template
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
-llm_model = "gemini/gemini-2.0-flash-lite-preview-02-05"
+llm_model = "gemini/gemini-2.0-flash-lite"
 sample_size = 10
 brave_search_size = 5
 
 # Load environment variables from .env file
 load_dotenv()
 
-def brave_search(query: str) -> dict:
+def brave_search(query: str, country: str) -> dict:
     headers = {
         'Accept': 'application/json',
         'Accept-Encoding': 'gzip',
         'X-Subscription-Token': os.getenv('BRAVE_API_KEY_BASE_AI')
     }
-    
     response = requests.get(
         'https://api.search.brave.com/res/v1/web/search',
-        params={'q': query, 'count': brave_search_size},
+        params={'q': query, 'count': brave_search_size, 'country': country},
         headers=headers
     )
     return response.json()
@@ -78,77 +77,17 @@ def breakdown(query: str = None):
     
     return search_terms
 
-def scrape_single_article(article, idx):
-    url = article.get('url')
-    if not url:
-        return None
-        
-    try:
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Remove unwanted elements
-        for tag in soup(['script', 'style', 'nav', 'footer', 'iframe']):
-            tag.decompose()
-        
-        # Extract main content
-        content = ""
-        main_content = soup.find('main') or soup.find('article') or soup.find('body')
-        if main_content:
-            paragraphs = main_content.find_all('p')
-            content = '\n'.join(p.get_text().strip() for p in paragraphs if len(p.get_text().strip()) > 50)
-            
-            # Skip if content is too short
-            if len(content) < 1000:
-                return None
-        
-        return {
-            'idx': idx,
-            'content': f"Article {idx}:\nTitle: {article.get('title', 'No title')}\nURL: {url}\nContent:\n{content[:2000]}...\n\n"
-        }
-        
-    except Exception as e:
-        return None
-
-def scrape_articles(results: list) -> str:
-    if len(results) < 2:
-        return "Not enough results to scrape"
-    
-    selected_articles = results[:sample_size]
-    scraped_content = "Detailed information from selected articles:\n\n"
-    
-    # Use ThreadPoolExecutor for concurrent scraping
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        # Submit all scraping tasks
-        future_to_article = {
-            executor.submit(scrape_single_article, article, idx): idx 
-            for idx, article in enumerate(selected_articles, 1)
-        }
-        
-        # Collect results as they complete
-        scraped_pieces = []
-        for future in as_completed(future_to_article):
-            result = future.result()
-            if result:
-                scraped_pieces.append(result)
-    
-    # Sort results by original index and combine
-    scraped_pieces.sort(key=lambda x: x['idx'])
-    scraped_content += ''.join(piece['content'] for piece in scraped_pieces)
-    
-    return scraped_content
-
 # Modify web_search to include scraped content
-def brave_single_search(term):
+def brave_single_search(term, country):
     try:
-        results = brave_search(term)
+        results = brave_search(term, country)
         if 'web' in results and 'results' in results['web']:
             return results['web']['results']
         return []
     except Exception as e:
         return []
 
-def web_search(terms: list = None):
+def web_search(terms: list = None, country: str = None):
     if terms is None:
         return {"error": "No search terms provided"}
     
@@ -158,7 +97,7 @@ def web_search(terms: list = None):
     with ThreadPoolExecutor(max_workers=5) as executor:
         # Submit all search tasks
         future_to_term = {
-            executor.submit(brave_single_search, term): term 
+            executor.submit(brave_single_search, term, country): term 
             for term in terms
         }
         
@@ -341,7 +280,7 @@ def deduplicate_results(results: list) -> list:
     
     return unique_results
 
-async def stream_search(query: str = None):
+async def stream_search(query: str = None, country: str = None):
     if query is None:
         yield f"event: error\ndata: {json.dumps({'error': 'No query provided'})}\n\n"
         return
@@ -353,7 +292,7 @@ async def stream_search(query: str = None):
         yield f"event: breakdown\ndata: {json.dumps(terms)}\n\n"
         
         # Step 2: Perform web search and get results
-        search_results, detailed_content = web_search(terms)
+        search_results, detailed_content = web_search(terms, country)
         search_results = deduplicate_results(search_results)
         yield f"event: search_results\ndata: {json.dumps(search_results)}\n\n"
         

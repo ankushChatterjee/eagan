@@ -201,7 +201,10 @@ source = { virtual = "." }
 dependencies = [
     { name = "brave-search" },
     { name = "fastapi" },
+    { name = "fastapi-geolocation" },
+    { name = "geoip2" },
     { name = "litellm" },
+    { name = "redis" },
     { name = "uvicorn" },
 ]
 
@@ -209,7 +212,10 @@ dependencies = [
 requires-dist = [
     { name = "brave-search", specifier = ">=0.1.8" },
     { name = "fastapi", specifier = ">=0.115.8" },
+    { name = "fastapi-geolocation", specifier = ">=1.0.1" },
+    { name = "geoip2", specifier = ">=5.0.1" },
     { name = "litellm", specifier = ">=1.61.16" },
+    { name = "redis", specifier = ">=5.2.1" },
     { name = "uvicorn", specifier = ">=0.34.0" },
 ]
 
@@ -225,6 +231,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a2/b2/5a5dc4affdb6661dea100324e19a7721d5dc524b464fe8e366c093fd7d87/fastapi-0.115.8.tar.gz", hash = "sha256:0ce9111231720190473e222cdf0f07f7206ad7e53ea02beb1d2dc36e2f0741e9", size = 295403 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/7d/2d6ce181d7a5f51dedb8c06206cbf0ec026a99bf145edd309f9e17c3282f/fastapi-0.115.8-py3-none-any.whl", hash = "sha256:753a96dd7e036b34eeef8babdfcfe3f28ff79648f86551eb36bfc1b0bf4a8cbf", size = 94814 },
+]
+
+[[package]]
+name = "fastapi-geolocation"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastapi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/56/31814d027ab057fc03fb98023865494379bd784cfb67602fd43a940354d6/fastapi-geolocation-1.0.1.tar.gz", hash = "sha256:1fc5fea4530f17f28ed8f7dee136af89f4da5446dfdc1f7ca83f285e6da3d9fd", size = 10322 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/e8/02f51a63e94105bc5839e4c7689f4b6542afd9192838b568591d443a3197/fastapi_geolocation-1.0.1-py3-none-any.whl", hash = "sha256:a2ae3ba06ec91331f1bc0fd6959a350e111e79409d3175008cb41f3b2460a94d", size = 10279 },
 ]
 
 [[package]]
@@ -282,6 +300,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b5/79/68612ed99700e6413de42895aa725463e821a6b3be75c87fcce1b4af4c70/fsspec-2025.2.0.tar.gz", hash = "sha256:1c24b16eaa0a1798afa0337aa0db9b256718ab2a89c425371f5628d22c3b6afd", size = 292283 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e2/94/758680531a00d06e471ef649e4ec2ed6bf185356a7f9fbfbb7368a40bd49/fsspec-2025.2.0-py3-none-any.whl", hash = "sha256:9de2ad9ce1f85e1931858535bc882543171d197001a0a5eb2ddc04f1781ab95b", size = 184484 },
+]
+
+[[package]]
+name = "geoip2"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "maxminddb" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/17/d7/21cfa1072b8ec5937c6af0cf8b624b4be9b44a7ca82f4335900df5482076/geoip2-5.0.1.tar.gz", hash = "sha256:90af8b6d3687f3bef251f2708ad017b30d627d1144c0040eabc4c9017a807d86", size = 175854 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/6c/4f17beb65444cd0b8e602c2ea64ef1ec8ff32e1aa8c6a3be3fad7113b947/geoip2-5.0.1-py3-none-any.whl", hash = "sha256:128b7c9e6b55fb66178428a9400bd4f8b011cf64f147b1ed9e3a4766e61a9b78", size = 28064 },
 ]
 
 [[package]]
@@ -502,6 +534,34 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/0d/80/0985960e4b89922cb5a0bac0ed39c5b96cbc1a536a99f30e8c220a996ed9/MarkupSafe-3.0.2-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:131a3c7689c85f5ad20f9f6fb1b866f402c445b220c19fe4308c0b147ccd2ad9", size = 24098 },
     { url = "https://files.pythonhosted.org/packages/82/78/fedb03c7d5380df2427038ec8d973587e90561b2d90cd472ce9254cf348b/MarkupSafe-3.0.2-cp313-cp313t-win32.whl", hash = "sha256:ba8062ed2cf21c07a9e295d5b8a2a5ce678b913b45fdf68c32d95d6c1291e0b6", size = 15208 },
     { url = "https://files.pythonhosted.org/packages/4f/65/6079a46068dfceaeabb5dcad6d674f5f5c61a6fa5673746f42a9f4c233b3/MarkupSafe-3.0.2-cp313-cp313t-win_amd64.whl", hash = "sha256:e444a31f8db13eb18ada366ab3cf45fd4b31e4db1236a4448f68778c1d1a5a2f", size = 15739 },
+]
+
+[[package]]
+name = "maxminddb"
+version = "2.6.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/ae/422ec0f3b6a40f23de9477c42fce90126a3994dd51d06b50582973c0088e/maxminddb-2.6.3.tar.gz", hash = "sha256:d2c3806baa7aa047aa1bac7419e7e353db435f88f09d51106a84dbacf645d254", size = 181376 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3a/c7/ddbb62accafeecb920d462df37b3c0102709feef2faf111b53fbf841b059/maxminddb-2.6.3-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:2b0fef825b23df047876d2056cbb69fb8d8e4b965f744f674be75e16fb86a52e", size = 35228 },
+    { url = "https://files.pythonhosted.org/packages/82/fe/2aa559147d123ed243bf7ef47dde5402b95c0620b9c88b986fcb4d5b672e/maxminddb-2.6.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a38faf03db15cc285009c0ddaacd04071b84ebd8ff7d773f700c7def695a291c", size = 35023 },
+    { url = "https://files.pythonhosted.org/packages/c2/6f/c8a86c172a3e93c0d17ed6dd7858a66ec791626a27b76fdc07143a6a5189/maxminddb-2.6.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:edab18a50470031fc8447bcd9285c9f5f952abef2b6db5579fe50665bdcda941", size = 90098 },
+    { url = "https://files.pythonhosted.org/packages/93/eb/5be5fec6128898a69e09e3af348c933eebb2d0f38e4ff375b3138436476f/maxminddb-2.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:415dd5de87adc7640d3da2a8e7cf19a313c1a715cb84a3433f0e3b2d27665319", size = 89567 },
+    { url = "https://files.pythonhosted.org/packages/77/2b/ca6e35cc8bbc4340f667a1531cc6cab24072326afd7b3424c8e89ad767dd/maxminddb-2.6.3-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:d78a02b70ededb3ba7317c24266217d7b68283e3be04cad0c34ee446a0217ee0", size = 87622 },
+    { url = "https://files.pythonhosted.org/packages/aa/08/730374d10e7d3ec21f77ae76a7ada8c9347bba5bb55c82d0cb8b50db7dc5/maxminddb-2.6.3-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:4b80275603bba6a95ed69d859d184dfa60bfd8e83cd4c8b722d7f7eaa9d95f8f", size = 92303 },
+    { url = "https://files.pythonhosted.org/packages/61/dc/5fffe5def128ca998004826010801d5f242e07efe9d03da4cc2a0b8ad03b/maxminddb-2.6.3-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:a6868438d1771c0bd0bbc95d84480c1ae04df72a85879e1ada42762250a00f59", size = 91211 },
+    { url = "https://files.pythonhosted.org/packages/b8/28/ac699e0994f1a45aebfed0db42efa56845369a047adc249c2df482b03279/maxminddb-2.6.3-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:efd875d43c4207fb90e10d582e4394d8a04f7b55c83c4d6bc0593a7be450e04f", size = 92128 },
+    { url = "https://files.pythonhosted.org/packages/1a/a1/d9ba3c10fcc3b1cdc432a28daeef5f4726d2125cc47e699c6da4b57cefa0/maxminddb-2.6.3-cp312-cp312-win32.whl", hash = "sha256:aadb9d12e887a1f52e8214e539e5d78338356fad4ef2a51931f6f7dbe56c2228", size = 34750 },
+    { url = "https://files.pythonhosted.org/packages/04/c2/c4c9aece9e56d86becca10f39cb02d4baaae71dc37cc1d0c6ad0d6015793/maxminddb-2.6.3-cp312-cp312-win_amd64.whl", hash = "sha256:7d6024d1e40244b5549c5e6063af109399a2f89503a24916b5139c4d0657f1c8", size = 36781 },
+    { url = "https://files.pythonhosted.org/packages/cc/e3/a3218d7cd35c930a08f7d7301334f9c85aa0a28dbac3f50e3d43f3d70734/maxminddb-2.6.3-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:9580b2cd017185db07baacd9d629ca01f3fe6f236528681c88a0209725376e9c", size = 35235 },
+    { url = "https://files.pythonhosted.org/packages/85/40/11f23d1c1f6654618d87e995f56a789f00c1c07d5c986f9b14d81f04f90c/maxminddb-2.6.3-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:47828bed767b82c219ba7aa65f0cb03d7f7443d7270259ce931e133a40691d34", size = 35021 },
+    { url = "https://files.pythonhosted.org/packages/68/7e/883adcb107fb45916328ecb40f980cc598dbcc7dfd2ccc871851c40836d6/maxminddb-2.6.3-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:77112cb1a2e381de42c443d1bf222c58b9da203183bb2008dd370c3d2a587a4e", size = 90068 },
+    { url = "https://files.pythonhosted.org/packages/2c/87/b57cf9ef4cf8b076f3b25df949b57c7b3ee0f4543f1f76f445afd313b96b/maxminddb-2.6.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:448d062e95242e3088df85fe7ed3f2890a9f4aea924bde336e9ff5d2337ca5fd", size = 89506 },
+    { url = "https://files.pythonhosted.org/packages/ff/f8/cf746032f267ee25bd32f70d71a63e857fec91e19a0907db885bdbb7b0c1/maxminddb-2.6.3-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a59d72bf373c61da156fd43e2be6da802f68370a50a2205de84ee76916e05f9f", size = 87612 },
+    { url = "https://files.pythonhosted.org/packages/c0/9e/ff5c93e8e589c1544cad2a457c1b7e4169a256c8655928266a9de6f21cac/maxminddb-2.6.3-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:e867852037a8a26a24cfcf31b697dce63d488e1617af244c2895568d8f6c7a31", size = 92310 },
+    { url = "https://files.pythonhosted.org/packages/99/44/56ed56377ba8c99f7eb3101479c063d46f18e5f0a9070432d74a2ed15f82/maxminddb-2.6.3-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:5a1586260eac831d61c2665b26ca1ae3ad00caca57c8031346767f4527025311", size = 91227 },
+    { url = "https://files.pythonhosted.org/packages/9b/58/cdb1a7c18a1946ad006657b52cb499e489d2b28a62490fd5aee14b356a55/maxminddb-2.6.3-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:6eb23f842a72ab3096f9f9b1c292f4feb55a8d758567cb6d77637c2257a3187c", size = 92126 },
+    { url = "https://files.pythonhosted.org/packages/39/94/4b37ffa77f8921a549805a62ce62f6fa453ea3c59c0dfcd584770fc59a8c/maxminddb-2.6.3-cp313-cp313-win32.whl", hash = "sha256:acf46e20709a27d2b519669888e3f53a37bc4204b98a0c690664c48ff8cb1364", size = 34751 },
+    { url = "https://files.pythonhosted.org/packages/1e/af/638811134e1a33cf75c2d2be1b0b9b90dd1f43216a4ef1f24e223f646b46/maxminddb-2.6.3-cp313-cp313-win_amd64.whl", hash = "sha256:3015afb00e6168837938dbe5fda40ace37442c22b292ccee27c1690fbf6078ed", size = 36790 },
 ]
 
 [[package]]
@@ -766,6 +826,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fe/0f/25911a9f080464c59fab9027482f822b86bf0608957a5fcc6eaac85aa515/PyYAML-6.0.2-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:68ccc6023a3400877818152ad9a1033e3db8625d899c72eacb5a668902e4d652", size = 751597 },
     { url = "https://files.pythonhosted.org/packages/14/0d/e2c3b43bbce3cf6bd97c840b46088a3031085179e596d4929729d8d68270/PyYAML-6.0.2-cp313-cp313-win32.whl", hash = "sha256:bc2fa7c6b47d6bc618dd7fb02ef6fdedb1090ec036abab80d4681424b84c1183", size = 140527 },
     { url = "https://files.pythonhosted.org/packages/fa/de/02b54f42487e3d3c6efb3f89428677074ca7bf43aae402517bc7cca949f3/PyYAML-6.0.2-cp313-cp313-win_amd64.whl", hash = "sha256:8388ee1976c416731879ac16da0aff3f63b286ffdd57cdeb95f3f2e085687563", size = 156446 },
+]
+
+[[package]]
+name = "redis"
+version = "5.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/da/d283a37303a995cd36f8b92db85135153dc4f7a8e4441aa827721b442cfb/redis-5.2.1.tar.gz", hash = "sha256:16f2e22dff21d5125e8481515e386711a34cbec50f0e44413dd7d9c060a54e0f", size = 4608355 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3c/5f/fa26b9b2672cbe30e07d9a5bdf39cf16e3b80b42916757c5f92bca88e4ba/redis-5.2.1-py3-none-any.whl", hash = "sha256:ee7e1056b9aea0f04c6c2ed59452947f34c4940ee025f5dd83e6a6418b6989e4", size = 261502 },
 ]
 
 [[package]]
