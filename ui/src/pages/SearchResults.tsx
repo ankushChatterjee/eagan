@@ -22,6 +22,7 @@ function SearchResults() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q');
+  const chatId = searchParams.get('chat_id');  // Add this line
 
   const [streamStatus, setStreamStatus] = useState<{
     queries?: string[];
@@ -41,11 +42,11 @@ function SearchResults() {
     data: SearchResponse | undefined;
     isLoading: boolean;
   } = useQuery({
-    queryKey: ['search', query],
+    queryKey: ['search', query, chatId],  // Add chatId to queryKey
     queryFn: ({ queryKey }) => {
       return new Promise((resolve, reject) => {
         const eventSource = new EventSourcePolyfill(
-          `http://localhost:8000/stream-search?query=${encodeURIComponent(queryKey[1] || '')}`,
+          `http://localhost:8000/stream-search?query=${encodeURIComponent(queryKey[1] || '')}&chat_id=${queryKey[2] || ''}`,
           {
             headers: { 'Accept': 'text/event-stream' },
             heartbeatTimeout: 60000,
@@ -95,7 +96,7 @@ function SearchResults() {
         });
       });
     },
-    enabled: !!query,
+    enabled: !!(query && chatId),  // Update enabled condition
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
@@ -113,10 +114,11 @@ function SearchResults() {
       setStreamingSummary('');
       setStreamedSearchResults([]);
       setSearchPhase(true);
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}&chat_id=${chatId}`);
     }
   };
 
+  // Update the bottom search bar input handler
   return (
     <div className="min-h-screen bg-[#1E1F1C] text-white relative">
       <div className="container mx-auto px-2 py-4 pb-24">

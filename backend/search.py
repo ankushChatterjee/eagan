@@ -1,20 +1,21 @@
 from litellm import completion
-from dotenv import load_dotenv
 import os
 import requests
-import random
-import time
+import db
 from datetime import datetime
 from string import Template
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
-llm_model = "gemini/gemini-2.0-flash-lite"
+lite_llm_model = "gemini/gemini-2.0-flash-lite"
+llm_model = "gemini/gemini-2.0-flash"
 sample_size = 10
 brave_search_size = 5
 
-# Load environment variables from .env file
-load_dotenv()
+SYSTEM_PROMPT = """
+You are an expert web search agent called "Eagan". For a given query, your work is to give the best possible report and analysis to the user.
+Your job is to analyse the given context text into a detailed report that captures the main ideas and provides a comprehensive answer to the query.       
+"""
 
 def brave_search(query: str, country: str) -> dict:
     headers = {
@@ -30,9 +31,43 @@ def brave_search(query: str, country: str) -> dict:
     return response.json()
 
 
-def breakdown(query: str = None):
+def breakdown(query: str = None, is_follow_up: bool = False, history: str = None):
     if query is None:
         return {"error": "No search query provided"}
+
+    followup_breakdown_prompt = Template("""
+            You are a web search agent. For a given query, your work is to give the best possible answer to the user.
+            To do this, as a first step take the query and break it down into smaller search terms.
+
+            You will also be given a chat history bounded in <history></history>.
+            It will have messages like this:
+            <history>
+            User: "User query:
+            Assistant: "Assistant response"
+            </history>
+
+            Keep in mind the chat history when generating the answer.
+
+            Make sure the search terms are following the following principles:
+            1. They are concise.
+            2. They provide the user adjoining information.
+            3. The search results for the original queries and this query should be somewhat different so that we get more variety of results.
+            4. Make sure the search terms evoke curiosity.
+            5. The query might be a question, extract the best possible search terms from it.
+
+            Make sure the search terms are applicable for the web. Generate a maximum of 3 search terms.
+
+            Output format: Each line contains a search term and outputs nothing else. Nothing at all.
+
+            Today's date and time in ISO format is ${current_date}.
+
+            <history>
+            ${history}
+            </history>
+
+            Here is your query:
+            ${query}
+        """)
     
     breakdown_prompt = Template("""
             You are a web search agent. For a given query, your work is to give the best possible answer to the user.
@@ -43,6 +78,7 @@ def breakdown(query: str = None):
             2. They provide the user adjoining information.
             3. The search results for the original queries and this query should be somewhat different so that we get more variety of results.
             4. Make sure the search terms evoke curiosity.
+            5. The query might be a question, extract the best possible search terms from it.
 
             Make sure the search terms are applicable for the web. Generate a maximum of 2 search terms.
 
@@ -55,12 +91,21 @@ def breakdown(query: str = None):
         """)
     
     current_date = datetime.now().isoformat()
-    formatted_prompt = breakdown_prompt.substitute(
-        current_date=current_date,
-        query=query
-    )
+    formatted_prompt = ""
+    if is_follow_up:
+        formatted_prompt = followup_breakdown_prompt.substitute(
+            current_date=current_date,
+            history=history,
+            query=query
+        )
+    else:
+        formatted_prompt = breakdown_prompt.substitute(
+            current_date=current_date,
+            query=query
+        )
+        
     response = completion(
-        model=llm_model,
+        model=lite_llm_model,
         messages=[
             {
                 "role": "user",
@@ -70,10 +115,10 @@ def breakdown(query: str = None):
         api_key=os.getenv('GEMINI_API_KEY')
     )
     
-    # Extract and return just the search terms
     # Extract search terms and add original query
     search_terms = response.choices[0].message.content.strip().split('\n')
-    search_terms.insert(0, query)
+    if not is_follow_up:
+        search_terms.insert(0, query)
     
     return search_terms
 
@@ -131,7 +176,7 @@ def convert_search_to_text(results: list = None, detailed_content: str = None):
         formatted_text += "\n"    
     return formatted_text.strip()
 
-async def summarize_search_results(query: str = None, context: str = None):
+async def summarize_search_results(query: str = None, context: str = None, chat_history: list = None):
     if query is None or context is None:
         yield ""
         return
@@ -139,12 +184,10 @@ async def summarize_search_results(query: str = None, context: str = None):
         You are an expoert web search agent. For a given query, your work is to give the best possible report and analysis to the user.
         Your job is to analyse the given context text into a detailed report that captures the main ideas and provides a comprehensive answer to the query.        
 
-        The context is: 
-        - list of web search results from the web. It has the citation number, the Title, the Link to the article, the published date, the description, the extra information.
+        The context is defined by list of web search results from the web. It has the citation number, the Title, the Link to the article, the published date, the description, the extra information.
 
         To analyse and generate the report, you should:
         - **Take a look at the query**: Understand the user's question or request.
-        - **Formulate a research plan to answer the query the best given the context**: Create a research plan to answer the query.
         - **Analyse the context**: From the context take a special look at the "extra information" and the description.
         - **Understand what parts from the context is relevant**: Identify the parts of the text that is relevant answer the query. 
         - **Analyse the relevant parts and join the dots**
@@ -152,10 +195,12 @@ async def summarize_search_results(query: str = None, context: str = None):
         - Create a detailed report for the user.
         - Organise the information. Use headings for sections. A proper structure is needed so that the user can read easily.
         - Use markdown features like headings, bullet points, code blocks, highlight important points etc to organise the report.
-        - When using citations, use ONLY links from the context. Make sure to embed the link in the markdown when using citations. [[<citation number>](<link>)]
+        - When using citations, use ONLY links from the context. Make sure to embed the link in the markdown when using citations. (Make sure to always add the link to the citation)
+            Eg: [[<citation number>](<link>)]
         - Make sure to highlight the important parts of the answer.
         - DO NOT INVENT ANYTHING, USE ONLY THE CONTEXT.
         - Keep the title simple, do not use words like "Report"/"Comprehensive" etc. Just use the query as heading.
+        - DO NOT WRAP IN MARKDOWN CODE BLOCKS EVEN IF THE USER ASKS YOU TO DO SO.
 
         To generate the report follow these rules:
         - **Journalistic tone**: The report should sound professional and journalistic, not too casual or vague.
@@ -174,22 +219,32 @@ async def summarize_search_results(query: str = None, context: str = None):
         This is the query:
         ${query}
     """)
-    
+
     current_date = datetime.now().isoformat()
     formatted_prompt = summarize_prompt.substitute(
         current_date=current_date,
         context=context,
         query=query
     )
+
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT
+        }
+    ]
+    
+    if chat_history and len(chat_history) > 0:
+        messages.extend(chat_history)
+
+    messages.append({
+        "role": "user",
+        "content": formatted_prompt
+    })
     
     response = completion(
         model=llm_model,
-        messages=[
-            {
-                "role": "user",
-                "content": formatted_prompt
-            }
-        ],
+        messages=messages,
         max_tokens=50049,
         temperature=0.6,
         stream=True,
@@ -236,7 +291,7 @@ def suggestions(query: str = None, context: str = None):
         current_date=datetime.now().isoformat()
     )
     response = completion(
-        model=llm_model,
+        model=lite_llm_model,
         messages=[
             {
                 "role": "user",
@@ -280,15 +335,29 @@ def deduplicate_results(results: list) -> list:
     
     return unique_results
 
-async def stream_search(query: str = None, country: str = None):
+# Modify stream_search function
+async def stream_search(query: str = None, country: str = None, chat_id: str = None, user_id: str = None, db = None):
     if query is None:
         yield f"event: error\ndata: {json.dumps({'error': 'No query provided'})}\n\n"
         return
     
     try:
+        # Load chat history from database
+        chat_history = []
+        if chat_id:
+            messages = db.get_chat_history(chat_id)
+            for msg in messages:
+                chat_history.append({
+                    "role": "user",
+                    "content": msg['user_query']
+                })
+                chat_history.append({
+                    "role": "assistant",
+                    "content": msg['ai_response']
+                })
         # Step 1: Get search terms
-        terms = breakdown(query)
-        #terms = [query]
+        terms = breakdown(query, is_follow_up=bool(chat_history), 
+                        history="\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history]))
         yield f"event: breakdown\ndata: {json.dumps(terms)}\n\n"
         
         # Step 2: Perform web search and get results
@@ -297,23 +366,29 @@ async def stream_search(query: str = None, country: str = None):
         yield f"event: search_results\ndata: {json.dumps(search_results)}\n\n"
         
         # Step 3: Convert to text and prepare for analysis
-        yield f"event: status\ndata: {json.dumps('Analyzing search results...')}\n\n"
         context = convert_search_to_text(search_results, detailed_content)
-                
-        # Step 4: Stream summary and get suggestions concurrently
-        yield f"event: status\ndata: {json.dumps('Generating summary and suggestions...')}\n\n"
         
         # Stream summary parts as they arrive
-        # Accumulate summary parts
         accumulated_summary = ""
-        async for part in summarize_search_results(query, context):
+        async for part in summarize_search_results(query, context, chat_history):
             accumulated_summary += part
             yield f"event: summary_part\ndata: {json.dumps(part)}\n\n"
         
-        # Get suggestions
-        suggestions_result = suggestions(query, detailed_content)
+        # Save to database if chat_id is provided
+        if chat_id and user_id:
+            # Save user query and AI response together
+            message = db.create_chat_message(
+                chat_id=chat_id,
+                user_id=user_id,
+                user_query=query,
+                ai_response=accumulated_summary
+            )
+            
+            # Store search results
+            db.store_search_results(chat_id, message['message_id'], search_results)
         
-        # Include accumulated summary in complete data
+        # Get suggestions and complete the response
+        suggestions_result = suggestions(query, detailed_content)
         complete_data = {
             "query": query,
             "search_results": search_results,
@@ -325,19 +400,41 @@ async def stream_search(query: str = None, country: str = None):
     except Exception as e:
         yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
 
-def search(query: str = None):
-    if query is None:
-        return {"error": "No query provided"}
-
-    terms = breakdown(query)
-    search_results, detailed_content = web_search(terms)
+async def test_search():
+    # Mock chat history as message objects
+    mock_history = [
+        {
+            "role": "user",
+            "content": "President of USA?"
+        },
+        {
+            "role": "assistant",
+            "content": "Donald Trump, he is a great guy."
+        }
+    ]
+    
+    test_query = "Where is he from?"
+    country = "US"
+    
+    # Get search terms and perform search
+    terms = breakdown(test_query, is_follow_up=True, 
+                     history="\n".join([f"{msg['role']}: {msg['content']}" for msg in mock_history]))
+    
+    # Perform web search
+    search_results, detailed_content = web_search(terms, country)
     search_results = deduplicate_results(search_results)
+    
+    # Convert to text format
     context = convert_search_to_text(search_results, detailed_content)
-    summary, suggestions = summarize_and_suggestions(query, context, detailed_content)
+    
+    # Test summarize_search_results with chat history
+    summary = ""
+    async for part in summarize_search_results(test_query, context, mock_history):
+        summary += part
 
-    return {
-        "query": query,
-        "search_results": search_results,
-        "summary": summary,
-        "suggestions": suggestions
-    }
+if __name__ == "__main__":
+    import asyncio
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    asyncio.run(test_search())

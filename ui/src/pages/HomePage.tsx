@@ -6,11 +6,33 @@ import { useState, useEffect } from 'react';
 export default function HomePage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const createChatSession = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/create-session', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      return data.chat_id;
+    } catch (error) {
+      console.error('Failed to create chat session:', error);
+      return null;
+    }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+      setIsLoading(true);
+      try {
+        const chatId = await createChatSession();
+        navigate(`/search?q=${encodeURIComponent(searchQuery)}&chat_id=${chatId}`);
+      } catch (error) {
+        console.error('Search failed:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -65,8 +87,8 @@ export default function HomePage() {
                   focus-visible:border-[#F2EEC8]/40
                   transition-shadow duration-300
                   resize-none"
+                disabled={isLoading}
               />
-              <div className="absolute inset-0 rounded-2xl bg-[#F2EEC8]/5 blur-xl opacity-50 -z-10" />
               <Button
                 type="submit"
                 size="lg"
@@ -77,9 +99,12 @@ export default function HomePage() {
                   before:absolute before:inset-0 before:rounded-xl
                   before:bg-gradient-to-r before:from-[#F2EEC8]/20 before:via-transparent before:to-transparent
                   before:animate-shimmer before:bg-[length:200%_100%]"
+                disabled={isLoading}
               >
-                <LightbulbIcon className="w-5 h-5 mr-2.5 transition-transform group-hover:scale-110 group-hover:rotate-12" />
-                <span className="font-round text-lg font-medium">Browse</span>
+                <LightbulbIcon className={`w-5 h-5 mr-2.5 transition-transform group-hover:scale-110 group-hover:rotate-12 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="font-round text-lg font-medium">
+                  {isLoading ? 'Loading...' : 'Browse'}
+                </span>
               </Button>
             </div>
           </div>
