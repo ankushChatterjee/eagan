@@ -26,14 +26,14 @@ class Database:
     def get_cursor(self):
         return self.conn.cursor(cursor_factory=RealDictCursor)
 
-    def create_chat_session(self, user_id: str) -> dict:
-        """Create a new chat session"""
+    def create_chat_session(self, user_id: str, chat_title: str) -> dict:
+        """Create a new chat session with a title"""
         with self.get_cursor() as cur:
             cur.execute("""
-                INSERT INTO chat_sessions (user_id)
-                VALUES (%s)
-                RETURNING chat_id, user_id, created_at, updated_at
-            """, (user_id,))
+                INSERT INTO chat_sessions (user_id, chat_title)
+                VALUES (%s, %s)
+                RETURNING chat_id, user_id, chat_title, created_at, updated_at
+            """, (user_id, chat_title))
             return cur.fetchone()
 
     def create_chat_message(self, chat_id: str, user_id: str, user_query: str, ai_response: str) -> dict:
@@ -136,12 +136,75 @@ class Database:
         """Get all chat sessions for a user"""
         with self.get_cursor() as cur:
             cur.execute("""
-                SELECT chat_id, created_at, updated_at
+                SELECT chat_id, created_at, updated_at, chat_title
                 FROM chat_sessions
                 WHERE user_id = %s
                 ORDER BY updated_at DESC
             """, (user_id,))
             return cur.fetchall()
+
+    def get_chat_details(self, chat_id: str) -> List[dict]:
+        """Get all details for a chat session using a single join query"""
+        try:
+            with self.get_cursor() as cur:
+                cur.execute("""
+                    SELECT 
+                        cm.message_id, cm.user_query, cm.ai_response, cm.created_at,
+                        sr.title, sr.url, sr.description, sr.page_age, sr.language, 
+                        sr.family_friendly, sr.type, sr.subtype, sr.is_live,
+                        rmu.scheme, rmu.netloc, rmu.hostname, rmu.favicon, rmu.path,
+                        rt.src AS thumbnail_src, rt.original AS thumbnail_original, rt.is_logo AS thumbnail_is_logo
+                    FROM chat_messages cm
+                    LEFT JOIN search_results sr ON cm.message_id = sr.message_id
+                    LEFT JOIN result_meta_urls rmu ON sr.result_id = rmu.result_id
+                    LEFT JOIN result_thumbnails rt ON sr.result_id = rt.result_id
+                    WHERE cm.chat_id = %s
+                    ORDER BY cm.created_at ASC
+                """, (chat_id,))
+                results = cur.fetchall()
+
+                # Group search results by message_id
+                messages = {}
+                for row in results:
+                    message_id = row['message_id']
+                    if message_id not in messages:
+                        messages[message_id] = {
+                            'message_id': message_id,
+                            'user_query': row['user_query'],
+                            'summary': row['ai_response'],
+                            'created_at': row['created_at'].isoformat(),
+                            'search_results': []
+                        }
+                    if row['title']:
+                        search_result = {
+                            'title': row['title'],
+                            'url': row['url'],
+                            'description': row['description'],
+                            'page_age': row['page_age'],
+                            'language': row['language'],
+                            'family_friendly': row['family_friendly'],
+                            'type': row['type'],
+                            'subtype': row['subtype'],
+                            'is_live': row['is_live'],
+                            'meta_url': {
+                                'scheme': row['scheme'],
+                                'netloc': row['netloc'],
+                                'hostname': row['hostname'],
+                                'favicon': row['favicon'],
+                                'path': row['path']
+                            },
+                            'thumbnail': {
+                                'src': row['thumbnail_src'],
+                                'original': row['thumbnail_original'],
+                                'is_logo': row['thumbnail_is_logo']
+                            }
+                        }
+                        messages[message_id]['search_results'].append(search_result)
+
+                return list(messages.values())
+        except Exception as e:
+            logging.error(f"Error fetching chat details for chat_id {chat_id}: {e}")
+            return []
 
     def close(self):
         """Close the database connection"""

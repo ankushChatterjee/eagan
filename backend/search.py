@@ -12,10 +12,6 @@ llm_model = "gemini/gemini-2.0-flash"
 sample_size = 10
 brave_search_size = 5
 
-SYSTEM_PROMPT = """
-You are an expert web search agent called "Eagan". For a given query, your work is to give the best possible report and analysis to the user.
-Your job is to analyse the given context text into a detailed report that captures the main ideas and provides a comprehensive answer to the query.       
-"""
 
 def brave_search(query: str, country: str) -> dict:
     headers = {
@@ -195,6 +191,7 @@ async def summarize_search_results(query: str = None, context: str = None, chat_
         - Create a detailed report for the user.
         - Organise the information. Use headings for sections. A proper structure is needed so that the user can read easily.
         - Use markdown features like headings, bullet points, code blocks, highlight important points etc to organise the report.
+        - Remember to put citations.
         - When using citations, use ONLY links from the context. Make sure to embed the link in the markdown when using citations. (Make sure to always add the link to the citation)
             Eg: [[<citation number>](<link>)]
         - Make sure to highlight the important parts of the answer.
@@ -203,7 +200,7 @@ async def summarize_search_results(query: str = None, context: str = None, chat_
         - DO NOT WRAP IN MARKDOWN CODE BLOCKS EVEN IF THE USER ASKS YOU TO DO SO.
 
         To generate the report follow these rules:
-        - **Journalistic tone**: The report should sound professional and journalistic, not too casual or vague.
+        - **Journalistic tone**: You speak line an old journalist, not too casual or vague.
         - **Thorough and detailed**: Ensure that every key point from the text is captured and that the report directly answers the query.
         - **Not too lengthy, but detailed**: The analysis should be informative.
         - Look at the time and date as well, keep that in mind when generating any response.
@@ -227,12 +224,7 @@ async def summarize_search_results(query: str = None, context: str = None, chat_
         query=query
     )
 
-    messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT
-        }
-    ]
+    messages = []
     
     if chat_history and len(chat_history) > 0:
         messages.extend(chat_history)

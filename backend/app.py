@@ -6,6 +6,7 @@ from geo import get_country_from_request
 from db import Database
 from dotenv import load_dotenv
 import logging
+from datetime import datetime
 
 app = FastAPI()
 
@@ -32,12 +33,15 @@ load_dotenv()
 database = Database()
 
 @app.post("/create-session")
-async def create_session():
+async def create_session(request: Request):
     try:
-        session = database.create_chat_session("anonymous")
+        body = await request.json()
+        chat_title = body.get("chat_title")
+        session = database.create_chat_session("anonymous", chat_title)
         return JSONResponse({
             "status": "success",
             "chat_id": session['chat_id'],
+            "chat_title": session['chat_title'],
             "created_at": session['created_at'].isoformat()
         })
     except Exception as e:
@@ -45,6 +49,46 @@ async def create_session():
         return JSONResponse(
             status_code=500,
             content={"error": "Failed to create chat session"}
+        )
+
+@app.get("/list-chats")
+async def list_chats():
+    try:
+        user_id = "anonymous"
+        chats = database.get_user_chats(user_id)
+        # Convert datetime objects to strings
+        for chat in chats:
+            chat['created_at'] = chat['created_at'].isoformat()
+            chat['updated_at'] = chat['updated_at'].isoformat()
+        return JSONResponse({
+            "status": "success",
+            "chats": chats
+        })
+    except Exception as e:
+        logging.error(f"Error listing chats for user {user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to list chats"}
+        )
+
+@app.get("/chat-details/{chat_id}")
+async def get_chat_details(chat_id: str):
+    try:
+        chat_details = database.get_chat_details(chat_id)
+        if not chat_details:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Chat not found"}
+            )
+        return JSONResponse({
+            "status": "success",
+            "chat_details": chat_details
+        })
+    except Exception as e:
+        logging.error(f"Error fetching chat details for chat_id {chat_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to fetch chat details"}
         )
 
 @app.get("/stream-search")

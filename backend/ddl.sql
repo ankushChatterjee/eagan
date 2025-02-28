@@ -1,6 +1,7 @@
 -- Chat sessions table to store ongoing conversations
 CREATE TABLE chat_sessions (
     chat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_title VARCHAR(2000) NOT NULL,  -- Added chat_title field
     user_id VARCHAR(50) NOT NULL,  -- Added user_id field
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

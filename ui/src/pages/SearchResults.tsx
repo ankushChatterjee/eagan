@@ -3,7 +3,7 @@ import {
 } from '@tanstack/react-query'
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SearchIcon, Loader2, LoaderPinwheel, ChevronRightIcon } from "lucide-react";
+import { SearchIcon, Loader2, LoaderPinwheel, ChevronRightIcon, ChevronLeftIcon } from "lucide-react";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Pill } from "@/components/ui/pill";
 import { SearchResponse } from '@/types/search';
@@ -13,7 +13,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 // @ts-ignore
 import { EventSourcePolyfill } from "event-source-polyfill";
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import rehypePrism from 'rehype-prism-plus';
@@ -22,29 +22,60 @@ function SearchResults() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q');
-  const chatId = searchParams.get('chat_id');  // Add this line
+  const chatId = searchParams.get('chat_id');
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Streaming state
   const [streamStatus, setStreamStatus] = useState<{
     queries?: string[];
     resultsCount?: number;
   }>({});
-
   const [streamingSummary, setStreamingSummary] = useState("");
   const [streamedSearchResults, setStreamedSearchResults] = useState<SearchResponse['search_results']>([]);
+  const [searchPhase, setSearchPhase] = useState(false);
+
+  // UI state
   const [showAllSources, setShowAllSources] = useState(false);
+  const [currentChatIndex, setCurrentChatIndex] = useState<number>(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const [searchPhase, setSearchPhase] = useState(true);
-
+  // Fetch chat history
   const {
-    data: results,
-    isLoading
-  }: {
-    data: SearchResponse | undefined;
-    isLoading: boolean;
-  } = useQuery({
-    queryKey: ['search', query, chatId],  // Add chatId to queryKey
+    data: chatHistory = [],
+    isLoading: isChatDetailsLoading,
+    refetch: refetchChatHistory
+  } = useQuery<SearchResponse[]>({
+    queryKey: ['chatDetails', chatId],
+    queryFn: async ({ queryKey }) => {
+      const response = await fetch(`http://localhost:8000/chat-details/${queryKey[1]}`);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      if (data.status !== "success") {
+        throw new Error('Failed to fetch chat details');
+      }
+      setCurrentChatIndex(data.chat_details.length - 1);
+      return data.chat_details;
+    },
+    enabled: !!chatId,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+  });
+
+  // This handles searching and streaming results
+  const {
+    data: searchResult,
+    isLoading: isSearchLoading,
+    refetch: refetchSearch
+  } = useQuery<SearchResponse>({
+    queryKey: ['search', query, chatId],
     queryFn: ({ queryKey }) => {
-      return new Promise((resolve, reject) => {
+      setSearchPhase(true);
+      setStreamingSummary('');
+      setStreamedSearchResults([]);
+
+      return new Promise<SearchResponse>((resolve, reject) => {
         const eventSource = new EventSourcePolyfill(
           `http://localhost:8000/stream-search?query=${encodeURIComponent(queryKey[1] || '')}&chat_id=${queryKey[2] || ''}`,
           {
@@ -69,9 +100,7 @@ function SearchResults() {
           const results = JSON.parse(e.data);
           currentData.search_results = results;
           setStreamStatus(prev => ({ ...prev, resultsCount: results.length }));
-          if (results.length > 0) {
-            setStreamedSearchResults(results);
-          }
+          setStreamedSearchResults(results);
         });
 
         eventSource.addEventListener('summary_part', (e: MessageEvent) => {
@@ -85,51 +114,114 @@ function SearchResults() {
           currentData.summary = data.summary;
           currentData.suggestions = data.suggestions;
           eventSource.close();
-          setStreamStatus(_ => ({ queries: undefined, resultsCount: undefined }));
-          setSearchPhase(false);
+          setStreamStatus({});
+
+          // When complete, we should refetch the chat history
+          refetchChatHistory().then(result => {
+            // After refetching, make sure we're showing the latest chat entry
+            if (result.data && result.data.length > 0) {
+              chatHistory[result.data.length - 1] = currentData as SearchResponse;
+              setCurrentChatIndex(result.data.length - 1);
+            }
+          });
+
           resolve(currentData as SearchResponse);
         });
 
         eventSource.addEventListener('error', (e: MessageEvent) => {
           eventSource.close();
+          setSearchPhase(false);
           reject(new Error('Stream error'));
         });
       });
     },
-    enabled: !!(query && chatId),  // Update enabled condition
+    enabled: !!(query && chatId),
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
 
-  // Update the Markdown component to use streaming summary when available
-  <Markdown
-    remarkPlugins={[remarkGfm]}
-    rehypePlugins={[rehypeRaw, rehypeSanitize]}
-  >
-    {streamingSummary || results?.summary || "Enter a search query to get started"}
-  </Markdown>
+  // Set input value when query changes
+  useEffect(() => {
+    if (inputRef.current && query) {
+      inputRef.current.value = query;
+    }
+    if (chatHistory && chatHistory.length > 0) {
+      setCurrentChatIndex(chatHistory.length - 1);
+    }
+  }, [query, chatHistory]);
+
+  // Reset streaming states when navigating to a different chat in history
+  useEffect(() => {
+    if (chatHistory && chatHistory.length > 0) {
+      setStreamingSummary('');
+      setStreamedSearchResults([]);
+      setSearchPhase(false);
+    }
+  }, [currentChatIndex]);
+
+  // If there's no query parameter but we have chat history, show the last query
+  useEffect(() => {
+    if (!query && chatHistory && chatHistory.length > 0 && !isSearchLoading) {
+      const lastChat = chatHistory[chatHistory.length - 1];
+      if (lastChat && lastChat.query) {
+        // Update the input field with the last query
+        if (inputRef.current) {
+          inputRef.current.value = lastChat.query;
+        }
+      }
+    }
+  }, [query, chatHistory, isSearchLoading]);
 
   const handleSearch = (searchQuery: string) => {
     if (searchQuery.trim()) {
-      setStreamingSummary('');
-      setStreamedSearchResults([]);
-      setSearchPhase(true);
       navigate(`/search?q=${encodeURIComponent(searchQuery)}&chat_id=${chatId}`);
     }
   };
 
-  // Update the bottom search bar input handler
+  const handlePreviousChat = () => {
+    if (currentChatIndex > 0) {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentChatIndex(currentChatIndex - 1);
+        setIsTransitioning(false);
+      }, 150); // Adjust the duration as needed
+    }
+  };
+
+  const handleNextChat = () => {
+    if (currentChatIndex < chatHistory.length - 1) {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentChatIndex(currentChatIndex + 1);
+        setIsTransitioning(false);
+      }, 150); // Adjust the duration as needed
+    }
+  };
+
+  // Get the current chat to display
+  const currentChat = chatHistory[currentChatIndex];
+
+  // Determine which search results to display based on state
+  const displaySearchResults = searchPhase
+    ? streamedSearchResults
+    : streamingSummary
+      ? streamedSearchResults
+      : currentChat?.search_results || [];
+
+  // Determine which summary to display
+  const displaySummary = streamingSummary || (currentChat?.summary || "Enter a search query to get started");
+
   return (
-    <div className="min-h-screen bg-[#1E1F1C] text-white relative">
-      <div className="container mx-auto px-2 py-4 pb-24">
+    <div className={`min-h-screen bg-[#1E1F1C] text-white relative`}>
+      < div className="container mx-auto px-2 py-4 pb-24">
         {/* Sources Strip */}
-        <div className="pb-4 mb-4">
+        <div className={`pb-4 mb-4 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-sm font-display text-white/60">Sources</h3>
             <div className="h-px flex-1 bg-white/5"></div>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-            {!streamedSearchResults.length ? (
+            {(searchPhase && !displaySearchResults.length) || (!currentChat && !streamedSearchResults.length) ? (
               // Skeleton loading state for sources
               <>
                 {[...Array(5)].map((_, index) => (
@@ -153,7 +245,7 @@ function SearchResults() {
             ) : (
               // Existing sources list
               <>
-                {(results?.search_results || streamedSearchResults)
+                {displaySearchResults
                   .slice(0, showAllSources ? undefined : 5)
                   .map((result, index) => (
                     <a
@@ -171,7 +263,8 @@ function SearchResults() {
                       after:absolute after:inset-0 after:rounded-md
                       after:bg-[#F2EEC8]/5 after:blur-xl after:opacity-0
                       after:transition-opacity hover:after:opacity-100
-                      relative backdrop-blur-md overflow-hidden"
+                      relative backdrop-blur-md overflow-hidden
+                      "
                       style={{
                         animationDelay: `${index * 80}ms`,
                       }}
@@ -197,7 +290,7 @@ function SearchResults() {
                     </a>
                   ))}
 
-                {!showAllSources && (results?.search_results || streamedSearchResults)?.length > 5 && (
+                {!showAllSources && displaySearchResults.length > 5 && (
                   <button
                     onClick={() => setShowAllSources(true)}
                     className="flex-none flex items-center gap-4 px-4 py-2.5 rounded-md 
@@ -207,8 +300,8 @@ function SearchResults() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex -space-x-1.5 mr-1">
-                        {(results?.search_results || streamedSearchResults)
-                          ?.slice(5, 8)
+                        {displaySearchResults
+                          .slice(5, 8)
                           .map((result, index) => (
                             <div
                               key={index}
@@ -226,7 +319,7 @@ function SearchResults() {
                           ))}
                       </div>
                       <span className="text-sm font-display whitespace-nowrap">
-                        See all {(results?.search_results || streamedSearchResults)?.length} sources
+                        See all {displaySearchResults.length} sources
                       </span>
                     </div>
                     <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -256,9 +349,9 @@ function SearchResults() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
           {/* AI Summary */}
           <div className="lg:col-span-1">
-            <div className="rounded-lg p-4 backdrop-blur-sm border border-white/5">
+            <div className={`rounded-lg p-4 backdrop-blur-sm border border-white/5 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
               {searchPhase ? (
-                // Replace the loading section with:
+                // Loading section
                 <div className="flex flex-col items-center justify-center py-12 space-y-6">
                   <div className="flex flex-col items-center space-y-6">
                     <div className="flex items-center gap-3">
@@ -315,12 +408,12 @@ function SearchResults() {
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw, rehypeSanitize, rehypePrism]}
                     >
-                      {results?.summary || streamingSummary || "Enter a search query to get started"}
+                      {displaySummary}
                     </Markdown>
                   </div>
-                  {results && (
+                  {searchResult && searchResult.suggestions && currentChatIndex == (chatHistory.length - 1) && (
                     <div className="flex flex-wrap gap-2 mt-6 fade-in-up">
-                      {results.suggestions.map((suggestion, index) => (
+                      {searchResult.suggestions.map((suggestion, index) => (
                         <Pill
                           key={index}
                           onClick={() => handleSearch(suggestion)}
@@ -337,9 +430,9 @@ function SearchResults() {
 
           {/* Image Gallery Sidebar */}
           <div className="hidden lg:block">
-            <div className="sticky top-4">
+            <div className={`sticky top-4 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
               <div className="columns-2 gap-2 space-y-2">
-                {streamedSearchResults.length == 0 ? (
+                {(searchPhase && !displaySearchResults.length) || (!currentChat && !streamedSearchResults.length) ? (
                   // Skeleton loading state
                   <>
                     {[...Array(4)].map((_, index) => (
@@ -356,7 +449,7 @@ function SearchResults() {
                   </>
                 ) : (
                   // Masonry Image Gallery
-                  (results?.search_results || streamedSearchResults)
+                  displaySearchResults
                     .filter(result => result.thumbnail && !result.thumbnail.logo)
                     .map((result, index) => (
                       <a
@@ -365,9 +458,6 @@ function SearchResults() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block group relative animate-fade-in-down mb-2 break-inside-avoid"
-                        style={{
-                          animationDelay: `${index * 100}ms`,
-                        }}
                       >
                         <img
                           src={result.thumbnail!.src}
@@ -405,6 +495,7 @@ function SearchResults() {
           <div className="flex gap-2 max-w-3xl mx-auto">
             <div className="relative flex-1">
               <Input
+                ref={inputRef}
                 type="text"
                 defaultValue={query || ''}
                 onKeyDown={(e) => {
@@ -412,19 +503,20 @@ function SearchResults() {
                     handleSearch(e.currentTarget.value);
                   }
                 }}
-                placeholder="Ask a follow-up question..."
+                placeholder="Dive deep on this topic"
                 className="h-10 bg-white/[0.03] border border-white/10 text-white placeholder:text-white/40 rounded-full px-4 text-sm font-display focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F2EEC8]/20 focus-visible:border-[#F2EEC8]/20"
               />
             </div>
             <Button
               onClick={() => {
-                const input = document.querySelector('input') as HTMLInputElement;
-                handleSearch(input?.value || '');
+                if (inputRef.current) {
+                  handleSearch(inputRef.current.value);
+                }
               }}
-              disabled={isLoading}
+              disabled={isSearchLoading}
               className="h-10 px-4 bg-[#F2EEC8] hover:bg-white text-[#1E1F1C] rounded-full transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(242,238,200,0.3)] group disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {isSearchLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <SearchIcon className="w-5 h-5 transition-transform group-hover:scale-110" />
@@ -433,7 +525,32 @@ function SearchResults() {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Floating Chat Navigation */}
+      {
+        chatHistory.length > 1 && (
+          <div className="fixed bottom-20 right-4 flex flex-col gap-2 items-center">
+            <div className="text-white font-round mb-2">
+              {currentChatIndex + 1}/{chatHistory.length}
+            </div>
+            <Button
+              onClick={handlePreviousChat}
+              disabled={currentChatIndex === 0 || isSearchLoading}
+              className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeftIcon className="w-6 h-6 font-bold" />
+            </Button>
+            <Button
+              onClick={handleNextChat}
+              disabled={currentChatIndex === chatHistory.length - 1 || isSearchLoading}
+              className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRightIcon className="w-6 h-6 font-bold" />
+            </Button>
+          </div>
+        )
+      }
+    </div >
   );
 }
 
