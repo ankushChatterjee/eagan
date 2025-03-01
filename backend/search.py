@@ -191,7 +191,7 @@ async def summarize_search_results(query: str = None, context: str = None, chat_
         - Create a detailed report for the user.
         - Organise the information. Use headings for sections. A proper structure is needed so that the user can read easily.
         - Use markdown features like headings, bullet points, code blocks, highlight important points etc to organise the report.
-        - Remember to put citations.
+        - Remember to use citations.
         - When using citations, use ONLY links from the context. Make sure to embed the link in the markdown when using citations. (Make sure to always add the link to the citation)
             Eg: [[<citation number>](<link>)]
         - Make sure to highlight the important parts of the answer.
@@ -202,7 +202,6 @@ async def summarize_search_results(query: str = None, context: str = None, chat_
         To generate the report follow these rules:
         - **Journalistic tone**: You speak line an old journalist, not too casual or vague.
         - **Thorough and detailed**: Ensure that every key point from the text is captured and that the report directly answers the query.
-        - **Not too lengthy, but detailed**: The analysis should be informative.
         - Look at the time and date as well, keep that in mind when generating any response.
         - Prefer recent information.
         - Make sure to structure the information under sections and headings.
@@ -253,14 +252,13 @@ def suggestions(query: str = None, context: str = None):
         return {"error": "Query and context are required"}
     suggest_prompt = Template("""
         You are an expoert web search agent. For a given query and context, you need to generate 5 "next search suggestions" for the user.
-        The given context is extracted data from some search results. This is scraped internet data, so remember that.
+        The given context is the last answer to a query. Your work is giving users search suggestions so that they can continue exploring.
 
         To generate the suggestions follow these rules:
         - Keep the search terms concise.
         - Take a look at the query and at the context.
-        - Only consider context which is relevant to the query.
-        - The suggestions must be very strongly related to the query.
-        - The suggestions must evoke curiosity.
+        - The suggestions must be very strongly related to the context.
+        - The suggestions must evoke curiosity and the zeal of exploration.
         - Do not use bullet points. USE ONLY PLAIN-TEXT.
         - They are search terms. Optimise for that, but keep the terms concise.
 
@@ -295,25 +293,6 @@ def suggestions(query: str = None, context: str = None):
     suggestions = response.choices[0].message.content.strip().split('\n')
     return suggestions
 
-def summarize_and_suggestions(query: str = None, context: str = None, detailed_content: str = None):
-    if query is None or context is None:
-        return {"error": "Query and context are required"}
-    
-    # Use ThreadPoolExecutor to run both tasks concurrently
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = {
-            executor.submit(summarize_search_results, query, context): 'summary',
-            executor.submit(suggestions, query, detailed_content): 'suggestions'
-        }
-        
-        results = {}
-        # Wait for both tasks to complete
-        for future in as_completed(futures):
-            task_name = futures[future]
-            results[task_name] = future.result()
-    
-    return results['summary'], results['suggestions']
-
 def deduplicate_results(results: list) -> list:
     """Remove duplicate search results based on URL"""
     seen_urls = set()
@@ -347,8 +326,9 @@ async def stream_search(query: str = None, country: str = None, chat_id: str = N
                     "role": "assistant",
                     "content": msg['ai_response']
                 })
+        is_follow_up = bool(chat_history)
         # Step 1: Get search terms
-        terms = breakdown(query, is_follow_up=bool(chat_history), 
+        terms = breakdown(query, is_follow_up=is_follow_up, 
                         history="\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history]))
         yield f"event: breakdown\ndata: {json.dumps(terms)}\n\n"
         
@@ -380,7 +360,11 @@ async def stream_search(query: str = None, country: str = None, chat_id: str = N
             db.store_search_results(chat_id, message['message_id'], search_results)
         
         # Get suggestions and complete the response
-        suggestions_result = suggestions(query, detailed_content)
+        suggestions_result = ""
+        if is_follow_up:
+            suggestions_result = suggestions(terms[0], accumulated_summary)
+        else:
+            suggestions_result = suggestions(query, accumulated_summary)
         complete_data = {
             "query": query,
             "search_results": search_results,
