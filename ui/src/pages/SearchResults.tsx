@@ -157,15 +157,6 @@ function SearchResults() {
     }
   }, [query, refetchSearch]);
 
-  // Reset streaming states when changing chat index
-  // useEffect(() => {
-  //   if (streamStatus.chatHistory && streamStatus.chatHistory[currentChatIndex]) {
-  //     const currentChat = streamStatus.chatHistory[currentChatIndex];
-  //     // setStreamingSummary(currentChat.summary || '');
-  //     // setStreamedSearchResults(currentChat.search_results || []);
-  //   }
-  // }, [currentChatIndex, streamStatus.chatHistory]);
-
   const handleSearch = async (searchQuery: string) => {
     if (searchQuery.trim()) {
       try {

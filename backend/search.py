@@ -1,6 +1,7 @@
 from litellm import completion
 import os
 import requests
+import re
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
@@ -144,7 +145,6 @@ async def summarize_search_results(query: str = None, context: str = None, chat_
         api_key=os.getenv('GEMINI_API_KEY')
     )
     
-    response_text = ""
     for part in response:
         part = part.choices[0].delta.content or ""
         yield part
@@ -182,6 +182,35 @@ def deduplicate_results(results: list) -> list:
             unique_results.append(result)
     
     return unique_results
+
+def fix_citations(text: str, search_results: list) -> str:
+    if not isinstance(text, str) or not isinstance(search_results, list):
+        raise ValueError("Invalid input: text must be string and search_results must be list")
+    
+    # Pattern for plain citations [number] and [number, number]
+    plain_citation_pattern = re.compile(r'\[(\d+(?:,\s*\d+)*)\](?!\()')
+    matches = plain_citation_pattern.findall(text)
+    
+    # Process each unique citation
+    for match in set(matches):
+        try:
+            citation_numbers = [int(num.strip()) for num in match.split(',')]
+            citation_texts = []
+            for citation_number in citation_numbers:
+                if 1 <= citation_number <= len(search_results):
+                    result = search_results[citation_number - 1]
+                    link = result.get('url', '')
+                    expected_citation = f'[{citation_number}]({link})'
+                    if link.strip() and expected_citation not in text:  # Check for non-empty URL and if not already formatted
+                        citation_texts.append(expected_citation)
+                    else:
+                        citation_texts.append(f"[{citation_number}]")
+            citation_text = ', '.join(citation_texts)
+            text = text.replace(f"[{match}]", citation_text)
+        except (ValueError, IndexError):
+            text = text.replace(f"[{match}]", "")
+    
+    return text
 
 async def stream_search_with_history(chat_id: str = None, user_id: str = None, db = None, country: str = "US"):
     if chat_id is None:
@@ -243,8 +272,9 @@ async def stream_search_with_history(chat_id: str = None, user_id: str = None, d
         # Stream summary parts as they arrive
         accumulated_summary = ""
         async for part in summarize_search_results(query, context, chat_history):
-            accumulated_summary += part
-            yield f"event: summary_part\ndata: {json.dumps(part)}\n\n"
+            fixed_part = fix_citations(part, search_results)
+            accumulated_summary += fixed_part
+            yield f"event: summary_part\ndata: {json.dumps(fixed_part)}\n\n"
         
         # Save to database if chat_id is provided
         if chat_id and user_id:
@@ -273,7 +303,7 @@ async def stream_search_with_history(chat_id: str = None, user_id: str = None, d
         complete_data = {
             "query": query,
             "search_results": search_results,
-            "summary": accumulated_summary,
+            "summary": fix_citations(accumulated_summary, search_results),
             "suggestions": suggestions_result,
             "status": "SEARCH_DONE"
         }

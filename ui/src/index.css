@@ -107,6 +107,9 @@ body {
 .prose a {
   color: #F2EEC8;
   text-decoration: none;
+  background: #0d1117;
+  padding: 0.125rem 0.25rem;
+  border-radius: 2px;
 }
 
 .prose a:hover {

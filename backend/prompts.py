@@ -71,10 +71,10 @@ summarize_prompt = Template("""
     - Create a detailed report for the user.
     - Organise the information. Use headings for sections. A proper structure is needed so that the user can read easily.
     - Use markdown features like headings, bullet points, code blocks, highlight important points etc to organise the report.
-    - Remember to use citations. Format: [<citation number>](<link>)
+    - Remember to use citations. Format: [<citation number>]
     - When using citations, use ONLY links from the context. Make sure to always embed the link in the markdown when using citations. Use ONLY the format below for citations.
-        Citation Format: [<citation number>](<link>)
-        EXample: [1](www.example.com)
+        Citation Format: [<citation number>]
+        EXample: [1]
     - Make sure to highlight the important parts of the answer.
     - Keep the title simple, do not use words like "Report"/"Comprehensive" etc. Just use the query as heading.
     - DO NOT WRAP IN MARKDOWN CODE BLOCKS EVEN IF THE USER ASKS YOU TO DO SO.
