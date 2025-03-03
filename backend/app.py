@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from search import stream_search, stream_search_with_history
+from search import stream_search_with_history
 from fastapi.responses import StreamingResponse, JSONResponse
 from geo import get_country_from_request
 from db import Database
@@ -38,7 +38,6 @@ async def create_session(request: Request):
         body = await request.json()
         chat_title = body.get("chat_title")
         query = body.get("query")
-        print(chat_title, query)
         session = database.create_chat_session("anonymous", chat_title, query)
         return JSONResponse({
             "status": "success",
@@ -120,46 +119,21 @@ async def get_chat_details(chat_id: str):
             content={"error": "Failed to fetch chat details"}
         )
 
-@app.get("/stream-search")
-async def stream_search_endpoint(
-    request: Request, 
-    query: str = None, 
-    chat_id: str = None, 
-    user_id: str = "anonymous"
-):
-    if query is None:
-        return {"error": "No search query provided"}
-    
-    # if not chat_id:
-    #     # Create a new chat session if none provided
-    #     session = database.create_chat_session(user_id)
-    #     chat_id = session['chat_id']
-        
-    country = get_country_from_request(request)
-    return StreamingResponse(
-        stream_search(
-            query=query, 
-            country=country, 
-            chat_id=chat_id, 
-            user_id=user_id,
-            db=database
-        ), 
-        media_type="text/event-stream"
-    )
-
 @app.get("/stream-search-with-history")
 async def stream_search_with_history_endpoint(
+    request: Request,
     chat_id: str = None, 
     user_id: str = "anonymous"
 ):
     if chat_id is None:
         return {"error": "No chat ID provided"}
-    
+    country = get_country_from_request(request)
     return StreamingResponse(
         stream_search_with_history(
             chat_id=chat_id, 
             user_id=user_id,
-            db=database
+            db=database,
+            country=country
         ), 
         media_type="text/event-stream"
     )
