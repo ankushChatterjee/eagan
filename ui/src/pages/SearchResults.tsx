@@ -21,10 +21,10 @@ const customShimmerStyles = `
   @keyframes enhanced-shimmer {
     0% {
       background-position: -200% 0;
-      text-shadow: 0 0 20px rgba(242, 238, 200, 0);
+      text-shadow: 0 0 10px rgba(242, 238, 200, 0);
     }
     50% {
-      text-shadow: 0 0 30px rgba(242, 238, 200, 0.5);
+      text-shadow: 0 0 15px rgba(242, 238, 200, 0.5);
     }
     100% {
       background-position: 200% 0;
@@ -48,6 +48,58 @@ const customShimmerStyles = `
     text-fill-color: transparent;
     display: inline-block;
     filter: drop-shadow(0 0 10px rgba(242, 238, 200, 0.1));
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .float-animation {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .glass-effect {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: linear-gradient(
+      180deg,
+      rgba(42, 43, 40, 0.8) 0%,
+      rgba(30, 31, 28, 0.8) 100%
+    );
+    border: 1px solid rgba(242, 238, 200, 0.1);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+
+  .glass-effect-subtle {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(30, 31, 28, 0.85);
+    border-top: 1px solid rgba(242, 238, 200, 0.05);
+  }
+
+  .search-bar-shadow {
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .source-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center center;
+    z-index: 1;
+  }
+
+  .source-card:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 10px 30px rgba(242, 238, 200, 0.1);
+    z-index: 2;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 `;
 
@@ -242,25 +294,25 @@ function SearchResults() {
     ? streamingSummary
     : currentChat?.summary || "Enter a search query to get started";
 
-
   return (
-    <div className="min-h-screen bg-[#1E1F1C] text-white relative">
-      <div className="container mx-auto px-2 py-4 pb-24">
-        <div className={`pb-4 mb-4 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-sm font-display text-white/60">Sources</h3>
-            <div className="h-px flex-1 bg-white/5"></div>
+    <div className="min-h-screen bg-[#1E1F1C] text-white relative overflow-x-hidden">
+      <style>{customShimmerStyles}</style>
+      <div className="container mx-auto px-4 py-8 pb-32">
+        <div className={`pb-6 mb-6 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <h3 className="text-sm font-display text-[#F2EEC8]/60 uppercase tracking-wider">Sources</h3>
+            <div className="h-px flex-1 bg-gradient-to-r from-[#F2EEC8]/10 to-transparent"></div>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+          <div className="flex gap-3 overflow-x-auto pb-3 hide-scrollbar -mx-4 px-4 pt-2">
             {isStreaming && !displaySearchResults.length ? (
               <>
                 {[...Array(5)].map((_, index) => (
                   <div key={index} className="flex-none animate-fade-in" style={{ animationDelay: `${index * 80}ms` }}>
-                    <div className="flex items-center gap-3 w-48 px-4 py-2.5 rounded-md bg-[#2A2B28] border border-white/5">
-                      <Skeleton className="w-4 h-4 rounded-sm bg-white/[0.03]" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-32 bg-white/[0.03]" />
-                        <Skeleton className="h-3 w-24 bg-white/[0.03]" />
+                    <div className="flex items-center gap-3 w-56 px-5 py-3.5 rounded-lg glass-effect">
+                      <Skeleton className="w-5 h-5 rounded-sm bg-white/[0.03]" />
+                      <div className="flex-1 space-y-2.5">
+                        <Skeleton className="h-4 w-36 bg-white/[0.03]" />
+                        <Skeleton className="h-3 w-28 bg-white/[0.03]" />
                       </div>
                     </div>
                   </div>
@@ -276,21 +328,19 @@ function SearchResults() {
                       href={result.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-none group animate-fade-in bg-[#2A2B28]/80 hover:bg-[#32332F]/80
-                      px-4 py-2.5 rounded-md border border-white/5 transition-all duration-300
+                      className="flex-none glass-effect
+                      px-5 py-3.5 rounded-lg
                       hover:border-[#F2EEC8]/30 
                       hover:shadow-[0_0_40px_rgba(242,238,200,0.08)]
-                      before:absolute before:inset-0 before:rounded-md
-                      before:bg-gradient-to-b before:from-[#F2EEC8]/10 before:to-transparent
-                      before:opacity-0 before:transition-opacity hover:before:opacity-100
-                      after:absolute after:inset-0 after:rounded-md
-                      after:bg-[#F2EEC8]/5 after:blur-xl after:opacity-0
-                      after:transition-opacity hover:after:opacity-100
-                      relative backdrop-blur-md overflow-hidden"
+                      relative overflow-visible group
+                      transition-all duration-300
+                      hover:-translate-y-1 hover:scale-[1.02]
+                      hover:z-10"
                       style={{ animationDelay: `${index * 80}ms` }}
                     >
-                      <div className="flex items-center gap-3 w-48">
-                        <div className="w-4 h-4 rounded-sm bg-white/[0.03] p-0.5 flex items-center justify-center">
+                      <div className="flex items-center gap-4 w-56">
+                        <div className="w-5 h-5 rounded-sm bg-white/[0.05] p-0.5 flex items-center justify-center
+                          ring-1 ring-white/10 group-hover:ring-[#F2EEC8]/30 transition-all">
                           <img
                             src={result.meta_url.favicon}
                             alt=""
@@ -298,11 +348,11 @@ function SearchResults() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-white/80 text-sm leading-relaxed font-display truncate
+                          <p className="text-white/90 text-sm leading-relaxed font-display truncate
                           group-hover:text-[#F2EEC8] transition-colors">
                             {result.title}
                           </p>
-                          <p className="text-white/40 text-xs truncate mt-0.5">
+                          <p className="text-white/40 text-xs truncate mt-1.5 font-mono">
                             {new URL(result.url).hostname}
                           </p>
                         </div>
@@ -312,21 +362,22 @@ function SearchResults() {
                 {!showAllSources && displaySearchResults.length > 5 && (
                   <button
                     onClick={() => setShowAllSources(true)}
-                    className="flex-none flex items-center gap-4 px-4 py-2.5 rounded-md 
-                      bg-[#2A2B28] hover:bg-[#32332F] border border-white/5
-                      transition-all duration-300 hover:border-[#F2EEC8]/20
-                      text-white/60 hover:text-[#F2EEC8] group animate-fade-in min-w-fit"
+                    className="flex-none source-card glass-effect
+                      flex items-center gap-4 px-5 py-3.5 rounded-lg
+                      text-white/70 hover:text-[#F2EEC8] group min-w-fit"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex -space-x-1.5 mr-1">
+                    <div className="flex items-center gap-4">
+                      <div className="flex -space-x-2">
                         {displaySearchResults
                           .slice(5, 8)
                           .map((result: any, index: number) => (
                             <div
                               key={index}
-                              className="w-4 h-4 bg-white/[0.03] p-0.5 
-                                flex items-center justify-center
-                                transition-all duration-300"
+                              className="w-5 h-5 bg-white/[0.05] p-0.5 
+                                flex items-center justify-center rounded-sm
+                                ring-1 ring-white/10 transition-all
+                                group-hover:translate-x-[2px]"
+                              style={{ transitionDelay: `${index * 50}ms` }}
                             >
                               <img
                                 src={result.meta_url.favicon}
@@ -341,21 +392,7 @@ function SearchResults() {
                         See all {displaySearchResults.length} sources
                       </span>
                     </div>
-                    <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
-                )}
-                {showAllSources && (
-                  <button
-                    onClick={() => setShowAllSources(false)}
-                    className="flex-none flex items-center gap-2 px-4 py-2.5 rounded-md 
-                      bg-[#2A2B28] hover:bg-[#32332F] border border-white/5
-                      transition-all duration-300 hover:border-[#F2EEC8]/20
-                      text-white/60 hover:text-[#F2EEC8] group animate-fade-in"
-                  >
-                    <span className="text-sm font-display whitespace-nowrap">
-                      Show less
-                    </span>
-                    <ChevronRightIcon className="w-4 h-4 rotate-180 group-hover:-translate-x-0.5 transition-transform" />
+                    <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 )}
               </>
@@ -363,40 +400,39 @@ function SearchResults() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
           <div className="lg:col-span-1">
-            <div className={`rounded-lg p-4 backdrop-blur-sm border border-white/5 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
+            <div className={`rounded-xl p-6 glass-effect ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
               {isStreaming && !streamingSummary ? (
-                <div className="flex flex-col items-center justify-center py-12 space-y-6">
-                  <div className="flex flex-col items-center space-y-6">
-                    <style>{customShimmerStyles}</style>
-                    <div className="flex items-center gap-3">
-                      <span className="text-4xl font-display tracking-tight font-bold enhanced-shimmer">
+                <div className="flex flex-col items-center justify-center py-16 space-y-8">
+                  <div className="flex flex-col items-center space-y-8">
+                    <div className="flex items-center gap-4 float-animation">
+                      <span className="text-5xl font-display tracking-tight font-bold enhanced-shimmer">
                         Browsing the web
                       </span>
                     </div>
                     {streamStatus.queries && (
-                      <div className="flex flex-col items-center space-y-4 w-full max-w-xl">
-                        <div className="flex flex-wrap gap-2 justify-center">
+                      <div className="flex flex-col items-center space-y-6 w-full max-w-2xl">
+                        <div className="flex flex-wrap gap-2.5 justify-center">
                           {streamStatus.queries.map((q: string, i: number) => (
                             <Pill
                               key={i}
                               className={cn(
-                                "animate-slide-up transition-all duration-500 flex items-center gap-2",
+                                "animate-slide-up transition-all duration-500 flex items-center gap-2.5 py-2 px-4 text-lg",
                                 !streamStatus.resultsCount && "animate-glow"
                               )}
+                              style={{ animationDelay: `${i * 150}ms` }}
                             >
-                              <SearchIcon className="w-4 h-4 text-[#F2EEC8]/70" />
+                              <SearchIcon className="w-6 h-6 text-[#F2EEC8]" />
                               <span className="text-sm">{q}</span>
-                              <span style={{ animationDelay: `${i * 150}ms` }} className="sr-only">Delay</span>
                             </Pill>
                           ))}
                         </div>
                       </div>
                     )}
                     {streamStatus.resultsCount && streamStatus.resultsCount > 0 && (
-                      <div className="animate-fade-in-up text-center">
-                        <span className="text-2xl font-display tracking-tight font-bold enhanced-shimmer">
+                      <div className="animate-fade-in-up text-center mt-4">
+                        <span className="text-3xl font-display tracking-tight font-bold enhanced-shimmer">
                           Reading {streamStatus.resultsCount} search results...
                         </span>
                       </div>
@@ -405,13 +441,14 @@ function SearchResults() {
                 </div>
               ) : (
                 <>
-                  <div className="prose font-round prose-invert 
-                                prose-strong:text-[#F2EEC8] 
-                                prose-a:text-[#F2EEC8] 
-                                prose-headings:text-[#F2EEC8]
-                                prose-code:text-[#F2EEC8]
-                                prose-blockquote:border-l-[#F2EEC8]
-                                prose-em:text-[#F2EEC8]/80
+                  <div className="prose font-round prose-invert max-w-none
+                                prose-p:text-lg prose-p:leading-relaxed
+                                prose-strong:text-[#F2EEC8] prose-strong:font-semibold
+                                prose-a:text-[#F2EEC8] prose-a:no-underline hover:prose-a:underline
+                                prose-headings:text-[#F2EEC8] prose-headings:font-display
+                                prose-code:text-[#F2EEC8] prose-code:bg-[#F2EEC8]/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md
+                                prose-blockquote:border-l-[#F2EEC8] prose-blockquote:bg-[#F2EEC8]/5 prose-blockquote:rounded-r-lg prose-blockquote:py-1
+                                prose-em:text-[#F2EEC8]/90
                                 selection:bg-[#F2EEC8]/20 
                                 selection:text-[#F2EEC8]
                                 animate-fade-in">
@@ -423,11 +460,12 @@ function SearchResults() {
                     </Markdown>
                   </div>
                   {searchResult?.suggestions && currentChatIndex === (streamStatus.chatHistory?.length || 0) - 1 && (
-                    <div className="flex flex-wrap gap-2 mt-6 fade-in-up">
+                    <div className="flex flex-wrap gap-2.5 mt-8 animate-fade-in-up">
                       {(searchResult as any).suggestions.map((suggestion: string, index: number) => (
                         <Pill
                           key={index}
                           onClick={() => handleSearch(suggestion)}
+                          className="py-2 px-4 hover:scale-105 transition-transform cursor-pointer"
                         >
                           {suggestion}
                         </Pill>
@@ -440,13 +478,13 @@ function SearchResults() {
           </div>
 
           <div className="hidden lg:block">
-            <div className={`sticky top-4 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
-              <div className="columns-2 gap-2 space-y-2">
+            <div className={`sticky top-6 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
+              <div className="columns-2 gap-3 space-y-3">
                 {isStreaming && !displaySearchResults.length ? (
                   <>
                     {[...Array(4)].map((_, index) => (
                       <div key={index} className="animate-fade-in break-inside-avoid" style={{ animationDelay: `${index * 100}ms` }}>
-                        <Skeleton className="bg-slate-700 w-full h-28 rounded-lg" />
+                        <Skeleton className="bg-white/[0.03] w-full h-32 rounded-lg" />
                       </div>
                     ))}
                   </>
@@ -459,18 +497,18 @@ function SearchResults() {
                         href={result.thumbnail!.src}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block group relative animate-fade-in-down mb-2 break-inside-avoid"
+                        className="block group relative animate-fade-in-down mb-3 break-inside-avoid"
                       >
-                        <img
-                          src={result.thumbnail!.src}
-                          alt={result.title}
-                          className="w-full rounded-lg border border-[#F2EEC8]/10 
-                            transition-all duration-300 
-                            group-hover:border-[#F2EEC8]/30 
-                            group-hover:scale-[1.02] 
-                            group-hover:shadow-[0_0_20px_rgba(242,238,200,0.15)]
-                            group-hover:z-10"
-                        />
+                        <div className="overflow-hidden rounded-lg">
+                          <img
+                            src={result.thumbnail!.src}
+                            alt={result.title}
+                            className="w-full transform transition-all duration-500
+                              group-hover:scale-110 
+                              group-hover:shadow-[0_0_30px_rgba(242,238,200,0.2)]"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </a>
                     ))
                 )}
@@ -480,18 +518,18 @@ function SearchResults() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-[#1E1F1C]/90 backdrop-blur-sm border-t border-white/5 p-3">
-        <div className="container mx-auto px-2 relative">
+      <div className="fixed bottom-0 left-0 right-0 glass-effect-subtle py-3">
+        <div className="container mx-auto px-4 relative">
           <div
             onClick={() => navigate('/')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-3 cursor-pointer group"
           >
-            <h2 className="text-xl font-bold tracking-tight text-white font-serif">
+            <h2 className="text-xl font-bold tracking-tight text-[#F2EEC8]/80 font-serif group-hover:text-[#F2EEC8] transition-colors">
               Eagan
             </h2>
           </div>
 
-          <div className="flex gap-2 max-w-3xl mx-auto">
+          <div className="flex gap-3 max-w-2xl mx-auto">
             <div className="relative flex-1">
               <Input
                 ref={inputRef}
@@ -503,7 +541,9 @@ function SearchResults() {
                   }
                 }}
                 placeholder="Dive deep on this topic"
-                className="h-10 bg-white/[0.03] border border-white/10 text-white placeholder:text-white/40 rounded-full px-4 text-sm font-display focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F2EEC8]/20 focus-visible:border-[#F2EEC8]/20"
+                className="h-10 glass-effect text-white placeholder:text-white/30 rounded-full px-5 text-sm font-display
+                focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F2EEC8]/20 focus-visible:border-[#F2EEC8]/20
+                transition-all duration-300"
               />
             </div>
             <Button
@@ -513,12 +553,15 @@ function SearchResults() {
                 }
               }}
               disabled={isSearchLoading}
-              className="h-10 px-4 bg-[#F2EEC8] hover:bg-white text-[#1E1F1C] rounded-full transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(242,238,200,0.3)] group disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 w-10 bg-[#F2EEC8]/90 hover:bg-[#F2EEC8] text-[#1E1F1C] rounded-full transition-all duration-300 
+                hover:scale-105 hover:shadow-[0_0_20px_rgba(242,238,200,0.3)] 
+                disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                group flex items-center justify-center p-2"
             >
               {isSearchLoading || isStreaming ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-10 h-10 animate-spin" />
               ) : (
-                <SearchIcon className="w-5 h-5 transition-transform group-hover:scale-110" />
+                <SearchIcon className="transition-transform group-hover:scale-110" />
               )}
             </Button>
           </div>
@@ -526,23 +569,29 @@ function SearchResults() {
       </div>
 
       {(streamStatus.chatHistory?.length || 0) > 1 && (
-        <div className="fixed bottom-20 right-4 flex flex-col gap-2 items-center">
-          <div className="text-white font-round mb-2">
+        <div className="fixed bottom-20 right-6 flex flex-col gap-2 items-center">
+          <div className="text-[#F2EEC8]/80 font-display mb-2 glass-effect px-3 py-1 rounded-full text-sm">
             {currentChatIndex + 1}/{streamStatus.chatHistory?.length}
           </div>
           <Button
             onClick={handlePreviousChat}
             disabled={currentChatIndex === 0 || isSearchLoading}
-            className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-12 w-12 glass-effect text-white/60 hover:text-[#F2EEC8] rounded-full 
+              transition-all duration-300 hover:scale-105
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+              group flex items-center justify-center"
           >
-            <ChevronLeftIcon className="w-6 h-6 font-bold" />
+            <ChevronLeftIcon className="w-10 h-10 transition-transform group-hover:-translate-x-0.5" />
           </Button>
           <Button
             onClick={handleNextChat}
             disabled={currentChatIndex === (streamStatus.chatHistory?.length || 0) - 1 || isSearchLoading}
-            className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-12 w-12 glass-effect text-white/60 hover:text-[#F2EEC8] rounded-full 
+              transition-all duration-300 hover:scale-105
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+              group flex items-center justify-center"
           >
-            <ChevronRightIcon className="w-6 h-6 font-bold" />
+            <ChevronRightIcon className="w-10 h-10 transition-transform group-hover:translate-x-0.5" />
           </Button>
         </div>
       )}
