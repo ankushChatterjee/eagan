@@ -212,7 +212,7 @@ def fix_citations(text: str, search_results: list) -> str:
                                 formatted_citation = f'[{citation_number}]({link})'
                                 citation_texts.append(formatted_citation)
                             else:
-                                citation_texts.append(f"[{citation_number}]")
+                                citation_texts.append(f"")
                         else:
                             citation_texts.append(f"[{citation_number}]")
                     citation_text = ', '.join(citation_texts)
@@ -293,6 +293,9 @@ async def stream_search_with_history(chat_id: str = None, user_id: str = None, d
             yield f"event: summary_part\ndata: {json.dumps(fixed_part)}\n\n"
         
         # Save to database if chat_id is provided
+
+        accumulated_summary = fix_citations(accumulated_summary, search_results)
+
         if chat_id and user_id:
             # Save user query and AI response together
             message = db.create_chat_message(
@@ -319,7 +322,7 @@ async def stream_search_with_history(chat_id: str = None, user_id: str = None, d
         complete_data = {
             "query": query,
             "search_results": search_results,
-            "summary": fix_citations(accumulated_summary, search_results),
+            "summary": accumulated_summary,
             "suggestions": suggestions_result,
             "status": "SEARCH_DONE"
         }

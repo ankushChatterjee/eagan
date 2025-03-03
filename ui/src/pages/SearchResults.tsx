@@ -480,7 +480,7 @@ function SearchResults() {
               disabled={isSearchLoading}
               className="h-10 px-4 bg-[#F2EEC8] hover:bg-white text-[#1E1F1C] rounded-full transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(242,238,200,0.3)] group disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSearchLoading ? (
+              {isSearchLoading || isStreaming ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <SearchIcon className="w-5 h-5 transition-transform group-hover:scale-110" />
