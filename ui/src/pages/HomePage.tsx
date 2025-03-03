@@ -34,7 +34,7 @@ export default function HomePage() {
       setIsLoading(true)
       try {
         const chatId = await createChatSession(searchQuery)
-        navigate(`/search?q=${encodeURIComponent(searchQuery)}&chat_id=${chatId}`)
+        navigate(`/search?chat_id=${chatId}`)
       } catch (error) {
         console.error('Search failed:', error)
       } finally {
@@ -114,7 +114,7 @@ export default function HomePage() {
 
         {/* Search Form */}
         <form onSubmit={handleSearch}>
-          <div className="max-w-2xl mx-auto relative group blur-[0.35px]">
+          <div className="max-w-4xl mx-auto relative group blur-[0.35px]">
             <div className="relative">
               <textarea
                 value={searchQuery}

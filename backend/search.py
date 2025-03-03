@@ -1,7 +1,6 @@
 from litellm import completion
 import os
 import requests
-import db
 from datetime import datetime
 from string import Template
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -147,8 +146,6 @@ def web_search(terms: list = None, country: str = None):
             results = future.result()
             all_results.extend(results)
     
-    # Add scraped content to results
- #   detailed_content = scrape_articles(all_results)
     return all_results, []
 
 def convert_search_to_text(results: list = None, detailed_content: str = None):
@@ -328,8 +325,11 @@ async def stream_search(query: str = None, country: str = None, chat_id: str = N
                 })
         is_follow_up = bool(chat_history)
         # Step 1: Get search terms
+        history = ""
+        if is_follow_up:
+            history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in  chat_history])
         terms = breakdown(query, is_follow_up=is_follow_up, 
-                        history="\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history]))
+                        history=history)
         yield f"event: breakdown\ndata: {json.dumps(terms)}\n\n"
         
         # Step 2: Perform web search and get results
@@ -365,11 +365,116 @@ async def stream_search(query: str = None, country: str = None, chat_id: str = N
             suggestions_result = suggestions(terms[0], accumulated_summary)
         else:
             suggestions_result = suggestions(query, accumulated_summary)
+        
+        # Delete pending search for the chat_id
+        if chat_id:
+            db.delete_pending_chat(chat_id)
+        
         complete_data = {
             "query": query,
             "search_results": search_results,
             "summary": accumulated_summary,
             "suggestions": suggestions_result
+        }
+        yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+        
+        
+    except Exception as e:
+        yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+async def stream_search_with_history(chat_id: str = None, user_id: str = None, db = None):
+    if chat_id is None:
+        yield f"event: error\ndata: {json.dumps({'error': 'No chat ID provided'})}\n\n"
+        return
+    
+    try:
+        # Fetch chat details from database
+        chat_details = db.get_chat_details(chat_id)
+        yield f"event: chatHistory\ndata: {json.dumps(chat_details)}\n\n"
+        
+        # Check for pending queries
+        pending_query = db.get_pending_chat(chat_id)
+        pending_info = {
+            "chatHistory": chat_details,
+            "pending_query": bool(pending_query)
+        }
+        yield f"event: chatHistory\ndata: {json.dumps(pending_info)}\n\n"
+        if not pending_query:
+            complete_data = {
+                "status": "NO_PENDING"
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+            return
+        
+        query = pending_query['query']
+        country = pending_query.get('country', 'US')
+        
+        is_follow_up = bool(chat_details)
+
+        chat_history = []
+        for msg in chat_details:
+            chat_history.append({
+                "role": "user",
+                "content": msg['user_query']
+            })
+            chat_history.append({
+                "role": "assistant",
+                "content": msg['summary']
+            })
+        
+        # Step 1: Get search terms
+        history = "No History, just use the query."
+        if is_follow_up:
+            history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history])
+
+        terms = breakdown(query, is_follow_up=is_follow_up, 
+                        history=history)
+        yield f"event: breakdown\ndata: {json.dumps(terms)}\n\n"
+        
+        # Step 2: Perform web search and get results
+        search_results, detailed_content = web_search(terms, country)
+        search_results = deduplicate_results(search_results)
+        yield f"event: search_results\ndata: {json.dumps(search_results)}\n\n"
+        
+        # Step 3: Convert to text and prepare for analysis
+        context = convert_search_to_text(search_results, detailed_content)
+        
+        # Stream summary parts as they arrive
+        accumulated_summary = ""
+        async for part in summarize_search_results(query, context, chat_history):
+            accumulated_summary += part
+            yield f"event: summary_part\ndata: {json.dumps(part)}\n\n"
+        
+        # Save to database if chat_id is provided
+        if chat_id and user_id:
+            # Save user query and AI response together
+            message = db.create_chat_message(
+                chat_id=chat_id,
+                user_id=user_id,
+                user_query=query,
+                ai_response=accumulated_summary
+            )
+            
+            # Store search results
+            db.store_search_results(chat_id, message['message_id'], search_results)
+        
+        # Get suggestions and complete the response
+        suggestions_result = ""
+        if is_follow_up:
+            suggestions_result = suggestions(terms[0], accumulated_summary)
+        else:
+            suggestions_result = suggestions(query, accumulated_summary)
+        
+        # Delete pending search for the chat_id
+        if chat_id:
+            db.delete_pending_chat(chat_id)
+        
+        complete_data = {
+            "query": query,
+            "search_results": search_results,
+            "summary": accumulated_summary,
+            "suggestions": suggestions_result,
+            "status": "SEARCH_DONE"
         }
         yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
         

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from search import stream_search
+from search import stream_search, stream_search_with_history
 from fastapi.responses import StreamingResponse, JSONResponse
 from geo import get_country_from_request
 from db import Database
@@ -37,7 +37,9 @@ async def create_session(request: Request):
     try:
         body = await request.json()
         chat_title = body.get("chat_title")
-        session = database.create_chat_session("anonymous", chat_title)
+        query = body.get("query")
+        print(chat_title, query)
+        session = database.create_chat_session("anonymous", chat_title, query)
         return JSONResponse({
             "status": "success",
             "chat_id": session['chat_id'],
@@ -49,6 +51,31 @@ async def create_session(request: Request):
         return JSONResponse(
             status_code=500,
             content={"error": "Failed to create chat session"}
+        )
+
+@app.post("/create-pending-chat")
+async def create_pending_chat(request: Request):
+    try:
+        body = await request.json()
+        chat_id = body.get("chat_id")
+        query = body.get("query")
+        if not chat_id or not query:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "chat_id and query are required"}
+            )
+        pending_chat = database.create_pending_chat(chat_id, query)
+        return JSONResponse({
+            "status": "success",
+            "chat_id": pending_chat['chat_id'],
+            "query": pending_chat['query'],
+            "created_at": pending_chat['created_at'].isoformat()
+        })
+    except Exception as e:
+        logging.error(f"Error creating pending chat: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to create pending chat"}
         )
 
 @app.get("/list-chats")
@@ -75,14 +102,16 @@ async def list_chats():
 async def get_chat_details(chat_id: str):
     try:
         chat_details = database.get_chat_details(chat_id)
-        if not chat_details:
+        pending_query = database.get_pending_chat(chat_id)
+        if not chat_details and not pending_query:
             return JSONResponse(
                 status_code=404,
                 content={"error": "Chat not found"}
             )
         return JSONResponse({
             "status": "success",
-            "chat_details": chat_details
+            "chat_details": chat_details,
+            "pending_query": pending_query
         })
     except Exception as e:
         logging.error(f"Error fetching chat details for chat_id {chat_id}: {str(e)}")
@@ -101,16 +130,33 @@ async def stream_search_endpoint(
     if query is None:
         return {"error": "No search query provided"}
     
-    if not chat_id:
-        # Create a new chat session if none provided
-        session = database.create_chat_session(user_id)
-        chat_id = session['chat_id']
+    # if not chat_id:
+    #     # Create a new chat session if none provided
+    #     session = database.create_chat_session(user_id)
+    #     chat_id = session['chat_id']
         
     country = get_country_from_request(request)
     return StreamingResponse(
         stream_search(
             query=query, 
             country=country, 
+            chat_id=chat_id, 
+            user_id=user_id,
+            db=database
+        ), 
+        media_type="text/event-stream"
+    )
+
+@app.get("/stream-search-with-history")
+async def stream_search_with_history_endpoint(
+    chat_id: str = None, 
+    user_id: str = "anonymous"
+):
+    if chat_id is None:
+        return {"error": "No chat ID provided"}
+    
+    return StreamingResponse(
+        stream_search_with_history(
             chat_id=chat_id, 
             user_id=user_id,
             db=database

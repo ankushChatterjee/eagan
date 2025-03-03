@@ -70,6 +70,13 @@ CREATE TABLE result_thumbnails (
     is_logo BOOLEAN DEFAULT false
 );
 
+-- Table to store pending chat queries
+CREATE TABLE pending_chats (
+    chat_id UUID PRIMARY KEY REFERENCES chat_sessions(chat_id) ON DELETE CASCADE,
+    query TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better query performance
 CREATE INDEX idx_chat_messages_chat_id ON chat_messages(chat_id);
 CREATE INDEX idx_search_results_chat_id ON search_results(chat_id);

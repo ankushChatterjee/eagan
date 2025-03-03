@@ -1,6 +1,4 @@
-import {
-  useQuery,
-} from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchIcon, Loader2, LoaderPinwheel, ChevronRightIcon, ChevronLeftIcon } from "lucide-react";
@@ -11,12 +9,12 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
-// @ts-ignore
 import { EventSourcePolyfill } from "event-source-polyfill";
 import { useState, useEffect, useRef } from 'react';
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import rehypePrism from 'rehype-prism-plus';
+import { set } from 'react-hook-form';
 
 function SearchResults() {
   const navigate = useNavigate();
@@ -29,55 +27,34 @@ function SearchResults() {
   const [streamStatus, setStreamStatus] = useState<{
     queries?: string[];
     resultsCount?: number;
-  }>({});
+    chatHistory?: any[];
+    pendingQuery?: boolean;
+  }>({
+    chatHistory: [],
+    pendingQuery: false
+  });
   const [streamingSummary, setStreamingSummary] = useState("");
   const [streamedSearchResults, setStreamedSearchResults] = useState<SearchResponse['search_results']>([]);
-  const [searchPhase, setSearchPhase] = useState(false);
 
   // UI state
   const [showAllSources, setShowAllSources] = useState(false);
   const [currentChatIndex, setCurrentChatIndex] = useState<number>(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Fetch chat history
-  const {
-    data: chatHistory = [],
-    isLoading: isChatDetailsLoading,
-    refetch: refetchChatHistory
-  } = useQuery<SearchResponse[]>({
-    queryKey: ['chatDetails', chatId],
-    queryFn: async ({ queryKey }) => {
-      const response = await fetch(`http://localhost:8000/chat-details/${queryKey[1]}`);
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const data = await response.json();
-      if (data.status !== "success") {
-        throw new Error('Failed to fetch chat details');
-      }
-      setCurrentChatIndex(data.chat_details.length - 1);
-      return data.chat_details;
-    },
-    enabled: !!chatId,
-    staleTime: 1000 * 60 * 5,
-    retry: 1,
-  });
-
-  // This handles searching and streaming results
+  // Fetch chat history and perform search
   const {
     data: searchResult,
     isLoading: isSearchLoading,
     refetch: refetchSearch
   } = useQuery<SearchResponse>({
-    queryKey: ['search', query, chatId],
+    queryKey: ['searchWithHistory', chatId, query],
     queryFn: ({ queryKey }) => {
-      setSearchPhase(true);
       setStreamingSummary('');
       setStreamedSearchResults([]);
 
       return new Promise<SearchResponse>((resolve, reject) => {
         const eventSource = new EventSourcePolyfill(
-          `http://localhost:8000/stream-search?query=${encodeURIComponent(queryKey[1] || '')}&chat_id=${queryKey[2] || ''}`,
+          `http://localhost:8000/stream-search-with-history?chat_id=${queryKey[1] || ''}&q=${encodeURIComponent(queryKey[2] || '')}`,
           {
             headers: { 'Accept': 'text/event-stream' },
             heartbeatTimeout: 60000,
@@ -85,11 +62,28 @@ function SearchResults() {
         );
 
         let currentData: Partial<SearchResponse> = {
-          query: queryKey[1] || '',
+          query: query || '',
           search_results: [],
           summary: '',
           suggestions: []
         };
+
+        eventSource.addEventListener('chatHistory', (e: MessageEvent) => {
+          const data = JSON.parse(e.data);
+          if (data.chatHistory) {
+            setStreamStatus(prev => ({
+              ...prev,
+              chatHistory: data.chatHistory,
+              pendingQuery: data.pending_query
+            }));
+            setCurrentChatIndex(data.chatHistory.length - 1);
+          }
+          if (data.pending_query) {
+            setStreamStatus(prev => ({ ...prev, pendingQuery: true }));
+            setStreamingSummary('');
+            setStreamedSearchResults([]);
+          }
+        });
 
         eventSource.addEventListener('breakdown', (e: MessageEvent) => {
           const queries = JSON.parse(e.data);
@@ -106,7 +100,6 @@ function SearchResults() {
         eventSource.addEventListener('summary_part', (e: MessageEvent) => {
           const part = JSON.parse(e.data);
           setStreamingSummary(prev => prev + part);
-          setSearchPhase(false);
         });
 
         eventSource.addEventListener('complete', (e: MessageEvent) => {
@@ -114,67 +107,83 @@ function SearchResults() {
           currentData.summary = data.summary;
           currentData.suggestions = data.suggestions;
           eventSource.close();
-          setStreamStatus({});
 
-          // When complete, we should refetch the chat history
-          refetchChatHistory().then(result => {
-            // After refetching, make sure we're showing the latest chat entry
-            if (result.data && result.data.length > 0) {
-              chatHistory[result.data.length - 1] = currentData as SearchResponse;
-              setCurrentChatIndex(result.data.length - 1);
-            }
-          });
+          if (data.status === 'SEARCH_DONE') {
+            setStreamStatus(prev => {
+              const updatedHistory = [...(prev.chatHistory || [])];
+              const existingIndex = updatedHistory.findIndex(
+                chat => chat.query === currentData.query
+              );
+
+              if (existingIndex >= 0) {
+                updatedHistory[existingIndex] = { ...currentData };
+              } else {
+                updatedHistory.push({ ...currentData });
+              }
+
+              return {
+                ...prev,
+                chatHistory: updatedHistory,
+                pendingQuery: false
+              };
+            });
+            setCurrentChatIndex(prev => {
+              return streamStatus.chatHistory ? streamStatus.chatHistory.length : 0;
+            });
+          }
 
           resolve(currentData as SearchResponse);
         });
 
         eventSource.addEventListener('error', (e: MessageEvent) => {
           eventSource.close();
-          setSearchPhase(false);
+          setStreamStatus(prev => ({ ...prev, pendingQuery: false }));
           reject(new Error('Stream error'));
         });
       });
     },
-    enabled: !!(query && chatId),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    cacheTime: 0,
     retry: 1,
   });
 
-  // Set input value when query changes
+  // Handle input value and trigger search on mount if query exists
   useEffect(() => {
-    if (inputRef.current && query) {
-      inputRef.current.value = query;
-    }
-    if (chatHistory && chatHistory.length > 0) {
-      setCurrentChatIndex(chatHistory.length - 1);
-    }
-  }, [query, chatHistory]);
-
-  // Reset streaming states when navigating to a different chat in history
-  useEffect(() => {
-    if (chatHistory && chatHistory.length > 0) {
-      setStreamingSummary('');
-      setStreamedSearchResults([]);
-      setSearchPhase(false);
-    }
-  }, [currentChatIndex]);
-
-  // If there's no query parameter but we have chat history, show the last query
-  useEffect(() => {
-    if (!query && chatHistory && chatHistory.length > 0 && !isSearchLoading) {
-      const lastChat = chatHistory[chatHistory.length - 1];
-      if (lastChat && lastChat.query) {
-        // Update the input field with the last query
-        if (inputRef.current) {
-          inputRef.current.value = lastChat.query;
-        }
+    if (inputRef.current) {
+      inputRef.current.value = query || '';
+      if (query && !isSearchLoading) {
+        refetchSearch();
       }
     }
-  }, [query, chatHistory, isSearchLoading]);
+  }, [query, refetchSearch]);
 
-  const handleSearch = (searchQuery: string) => {
+  // Reset streaming states when changing chat index
+  // useEffect(() => {
+  //   if (streamStatus.chatHistory && streamStatus.chatHistory[currentChatIndex]) {
+  //     const currentChat = streamStatus.chatHistory[currentChatIndex];
+  //     // setStreamingSummary(currentChat.summary || '');
+  //     // setStreamedSearchResults(currentChat.search_results || []);
+  //   }
+  // }, [currentChatIndex, streamStatus.chatHistory]);
+
+  const handleSearch = async (searchQuery: string) => {
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}&chat_id=${chatId}`);
+      try {
+        await fetch('http://localhost:8000/create-pending-chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ chat_id: chatId, query: searchQuery })
+        });
+        setStreamStatus(prev => ({ ...prev, queries: [] }));
+        setStreamStatus(prev => ({ ...prev, pendingQuery: true }));
+        setStreamingSummary('');
+        setStreamedSearchResults([]);
+      } catch (error) {
+        console.error('Failed to create pending chat:', error);
+      }
+      refetchSearch();
     }
   };
 
@@ -182,56 +191,46 @@ function SearchResults() {
     if (currentChatIndex > 0) {
       setIsTransitioning(true);
       setTimeout(() => {
-        setCurrentChatIndex(currentChatIndex - 1);
+        setCurrentChatIndex(prev => prev - 1);
         setIsTransitioning(false);
-      }, 150); // Adjust the duration as needed
+      }, 150);
     }
   };
 
   const handleNextChat = () => {
-    if (currentChatIndex < chatHistory.length - 1) {
+    if (currentChatIndex < (streamStatus.chatHistory?.length || 0) - 1) {
       setIsTransitioning(true);
       setTimeout(() => {
-        setCurrentChatIndex(currentChatIndex + 1);
+        setCurrentChatIndex(prev => prev + 1);
         setIsTransitioning(false);
-      }, 150); // Adjust the duration as needed
+      }, 150);
     }
   };
 
-  // Get the current chat to display
-  const currentChat = chatHistory[currentChatIndex];
+  const currentChat = streamStatus.chatHistory?.[currentChatIndex];
+  const isStreaming = streamStatus.pendingQuery || isSearchLoading;
 
-  // Determine which search results to display based on state
-  const displaySearchResults = searchPhase
+  const displaySearchResults = isStreaming
     ? streamedSearchResults
-    : streamingSummary
-      ? streamedSearchResults
-      : currentChat?.search_results || [];
+    : currentChat?.search_results || [];
+  const displaySummary = isStreaming
+    ? streamingSummary
+    : currentChat?.summary || "Enter a search query to get started";
 
-  // Determine which summary to display
-  const displaySummary = streamingSummary || (currentChat?.summary || "Enter a search query to get started");
 
   return (
-    <div className={`min-h-screen bg-[#1E1F1C] text-white relative`}>
-      < div className="container mx-auto px-2 py-4 pb-24">
-        {/* Sources Strip */}
+    <div className="min-h-screen bg-[#1E1F1C] text-white relative">
+      <div className="container mx-auto px-2 py-4 pb-24">
         <div className={`pb-4 mb-4 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-sm font-display text-white/60">Sources</h3>
             <div className="h-px flex-1 bg-white/5"></div>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-            {(searchPhase && !displaySearchResults.length) || (!currentChat && !streamedSearchResults.length) ? (
-              // Skeleton loading state for sources
+            {isStreaming && !displaySearchResults.length ? (
               <>
                 {[...Array(5)].map((_, index) => (
-                  <div
-                    key={index}
-                    className="flex-none animate-fade-in"
-                    style={{
-                      animationDelay: `${index * 80}ms`,
-                    }}
-                  >
+                  <div key={index} className="flex-none animate-fade-in" style={{ animationDelay: `${index * 80}ms` }}>
                     <div className="flex items-center gap-3 w-48 px-4 py-2.5 rounded-md bg-[#2A2B28] border border-white/5">
                       <Skeleton className="w-4 h-4 rounded-sm bg-white/[0.03]" />
                       <div className="flex-1 space-y-2">
@@ -243,7 +242,6 @@ function SearchResults() {
                 ))}
               </>
             ) : (
-              // Existing sources list
               <>
                 {displaySearchResults
                   .slice(0, showAllSources ? undefined : 5)
@@ -263,11 +261,8 @@ function SearchResults() {
                       after:absolute after:inset-0 after:rounded-md
                       after:bg-[#F2EEC8]/5 after:blur-xl after:opacity-0
                       after:transition-opacity hover:after:opacity-100
-                      relative backdrop-blur-md overflow-hidden
-                      "
-                      style={{
-                        animationDelay: `${index * 80}ms`,
-                      }}
+                      relative backdrop-blur-md overflow-hidden"
+                      style={{ animationDelay: `${index * 80}ms` }}
                     >
                       <div className="flex items-center gap-3 w-48">
                         <div className="w-4 h-4 rounded-sm bg-white/[0.03] p-0.5 flex items-center justify-center">
@@ -289,7 +284,6 @@ function SearchResults() {
                       </div>
                     </a>
                   ))}
-
                 {!showAllSources && displaySearchResults.length > 5 && (
                   <button
                     onClick={() => setShowAllSources(true)}
@@ -325,7 +319,6 @@ function SearchResults() {
                     <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 )}
-
                 {showAllSources && (
                   <button
                     onClick={() => setShowAllSources(false)}
@@ -345,13 +338,10 @@ function SearchResults() {
           </div>
         </div>
 
-        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-          {/* AI Summary */}
           <div className="lg:col-span-1">
             <div className={`rounded-lg p-4 backdrop-blur-sm border border-white/5 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
-              {searchPhase ? (
-                // Loading section
+              {isStreaming && !streamingSummary ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-6">
                   <div className="flex flex-col items-center space-y-6">
                     <div className="flex items-center gap-3">
@@ -360,7 +350,6 @@ function SearchResults() {
                         Browsing the web
                       </h2>
                     </div>
-
                     {streamStatus.queries && (
                       <div className="flex flex-col items-center space-y-4 w-full max-w-xl">
                         <div className="flex flex-wrap gap-2 justify-center">
@@ -371,9 +360,7 @@ function SearchResults() {
                                 "animate-slide-up transition-all duration-500 flex items-center gap-2",
                                 !streamStatus.resultsCount && "animate-glow"
                               )}
-                              style={{
-                                animationDelay: `${i * 150}ms`,
-                              }}
+                              style={{ animationDelay: `${i * 150}ms` }}
                             >
                               <SearchIcon className="w-4 h-4 text-[#F2EEC8]/70" />
                               <span className="text-sm">{q}</span>
@@ -382,7 +369,6 @@ function SearchResults() {
                         </div>
                       </div>
                     )}
-
                     {streamStatus.resultsCount && (
                       <div className="animate-fade-in-up text-center">
                         <p className="text-xl font-display text-[#F2EEC8]/90">
@@ -411,7 +397,7 @@ function SearchResults() {
                       {displaySummary}
                     </Markdown>
                   </div>
-                  {searchResult && searchResult.suggestions && currentChatIndex == (chatHistory.length - 1) && (
+                  {searchResult?.suggestions && currentChatIndex === (streamStatus.chatHistory?.length || 0) - 1 && (
                     <div className="flex flex-wrap gap-2 mt-6 fade-in-up">
                       {searchResult.suggestions.map((suggestion, index) => (
                         <Pill
@@ -428,27 +414,18 @@ function SearchResults() {
             </div>
           </div>
 
-          {/* Image Gallery Sidebar */}
           <div className="hidden lg:block">
             <div className={`sticky top-4 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
               <div className="columns-2 gap-2 space-y-2">
-                {(searchPhase && !displaySearchResults.length) || (!currentChat && !streamedSearchResults.length) ? (
-                  // Skeleton loading state
+                {isStreaming && !displaySearchResults.length ? (
                   <>
                     {[...Array(4)].map((_, index) => (
-                      <div
-                        key={index}
-                        className="animate-fade-in break-inside-avoid"
-                        style={{
-                          animationDelay: `${index * 100}ms`,
-                        }}
-                      >
+                      <div key={index} className="animate-fade-in break-inside-avoid" style={{ animationDelay: `${index * 100}ms` }}>
                         <Skeleton className="bg-slate-700 w-full h-28 rounded-lg" />
                       </div>
                     ))}
                   </>
                 ) : (
-                  // Masonry Image Gallery
                   displaySearchResults
                     .filter(result => result.thumbnail && !result.thumbnail.logo)
                     .map((result, index) => (
@@ -478,10 +455,8 @@ function SearchResults() {
         </div>
       </div>
 
-      {/* Fixed Search Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#1E1F1C]/90 backdrop-blur-sm border-t border-white/5 p-3">
         <div className="container mx-auto px-2 relative">
-          {/* Logo */}
           <div
             onClick={() => navigate('/')}
             className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -491,7 +466,6 @@ function SearchResults() {
             </h2>
           </div>
 
-          {/* Search Bar */}
           <div className="flex gap-2 max-w-3xl mx-auto">
             <div className="relative flex-1">
               <Input
@@ -526,31 +500,28 @@ function SearchResults() {
         </div>
       </div>
 
-      {/* Floating Chat Navigation */}
-      {
-        chatHistory.length > 1 && (
-          <div className="fixed bottom-20 right-4 flex flex-col gap-2 items-center">
-            <div className="text-white font-round mb-2">
-              {currentChatIndex + 1}/{chatHistory.length}
-            </div>
-            <Button
-              onClick={handlePreviousChat}
-              disabled={currentChatIndex === 0 || isSearchLoading}
-              className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeftIcon className="w-6 h-6 font-bold" />
-            </Button>
-            <Button
-              onClick={handleNextChat}
-              disabled={currentChatIndex === chatHistory.length - 1 || isSearchLoading}
-              className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRightIcon className="w-6 h-6 font-bold" />
-            </Button>
+      {(streamStatus.chatHistory?.length || 0) > 1 && (
+        <div className="fixed bottom-20 right-4 flex flex-col gap-2 items-center">
+          <div className="text-white font-round mb-2">
+            {currentChatIndex + 1}/{streamStatus.chatHistory?.length}
           </div>
-        )
-      }
-    </div >
+          <Button
+            onClick={handlePreviousChat}
+            disabled={currentChatIndex === 0 || isSearchLoading}
+            className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeftIcon className="w-6 h-6 font-bold" />
+          </Button>
+          <Button
+            onClick={handleNextChat}
+            disabled={currentChatIndex === (streamStatus.chatHistory?.length || 0) - 1 || isSearchLoading}
+            className="h-12 w-12 bg-[#2A2B28] hover:bg-[#32332F] text-white/60 hover:text-white rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRightIcon className="w-6 h-6 font-bold" />
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 

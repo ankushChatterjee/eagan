@@ -26,15 +26,17 @@ class Database:
     def get_cursor(self):
         return self.conn.cursor(cursor_factory=RealDictCursor)
 
-    def create_chat_session(self, user_id: str, chat_title: str) -> dict:
-        """Create a new chat session with a title"""
+    def create_chat_session(self, user_id: str, chat_title: str, query: str) -> dict:
+        """Create a new chat session with a title and add the query to pending chats"""
         with self.get_cursor() as cur:
             cur.execute("""
                 INSERT INTO chat_sessions (user_id, chat_title)
                 VALUES (%s, %s)
                 RETURNING chat_id, user_id, chat_title, created_at, updated_at
             """, (user_id, chat_title))
-            return cur.fetchone()
+            session = cur.fetchone()
+            self.create_pending_chat(session['chat_id'], chat_title)
+            return session
 
     def create_chat_message(self, chat_id: str, user_id: str, user_query: str, ai_response: str) -> dict:
         """Create a new chat message with both user query and AI response"""
@@ -200,11 +202,51 @@ class Database:
                             }
                         }
                         messages[message_id]['search_results'].append(search_result)
-
                 return list(messages.values())
         except Exception as e:
             logging.error(f"Error fetching chat details for chat_id {chat_id}: {e}")
             return []
+
+    def create_pending_chat(self, chat_id: str, query: str) -> dict:
+        """Create a new pending chat or update if it already exists"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                INSERT INTO pending_chats (chat_id, query)
+                VALUES (%s, %s)
+                ON CONFLICT (chat_id) DO UPDATE
+                SET query = EXCLUDED.query
+                RETURNING chat_id, query, created_at
+            """, (chat_id, query))
+            return cur.fetchone()
+
+    def update_pending_chat(self, chat_id: str, query: str) -> dict:
+        """Update an existing pending chat"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                UPDATE pending_chats
+                SET query = %s
+                WHERE chat_id = %s
+                RETURNING chat_id, query, created_at
+            """, (query, chat_id))
+            return cur.fetchone()
+
+    def delete_pending_chat(self, chat_id: str) -> None:
+        """Delete a pending chat"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                DELETE FROM pending_chats
+                WHERE chat_id = %s
+            """, (chat_id,))
+
+    def get_pending_chat(self, chat_id: str) -> Optional[dict]:
+        """Get the pending query for a chat session"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                SELECT query
+                FROM pending_chats
+                WHERE chat_id = %s
+            """, (chat_id,))
+            return cur.fetchone()
 
     def close(self):
         """Close the database connection"""
