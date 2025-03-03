@@ -3,7 +3,7 @@ Web search and report generation software.
 
 A little side project to learn stuff, I intend to make it much much better.
 
-Its still somewhat slow and has (a lot of) bugs, bug I kind of like the search reports it writes now.
+Its still somewhat slow and has (a lot of) bugs, but I kind of like the search reports it writes now.
 
 This is not for quick searches, but for reading up on a topic on a single page from a detailed overview. It is meant to give you context on a topic.
 
