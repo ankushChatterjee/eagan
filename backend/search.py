@@ -189,26 +189,42 @@ def fix_citations(text: str, search_results: list) -> str:
     
     # Pattern for plain citations [number] and [number, number]
     plain_citation_pattern = re.compile(r'\[(\d+(?:,\s*\d+)*)\](?!\()')
+    # Pattern for already formatted citations [number](link)
+    formatted_citation_pattern = re.compile(r'\[\d+\]\([^)]+\)')
+    
     matches = plain_citation_pattern.findall(text)
     
-    # Process each unique citation
+    # Process each unique plain citation
     for match in set(matches):
-        try:
-            citation_numbers = [int(num.strip()) for num in match.split(',')]
-            citation_texts = []
-            for citation_number in citation_numbers:
-                if 1 <= citation_number <= len(search_results):
-                    result = search_results[citation_number - 1]
-                    link = result.get('url', '')
-                    expected_citation = f'[{citation_number}]({link})'
-                    if link.strip() and expected_citation not in text:  # Check for non-empty URL and if not already formatted
-                        citation_texts.append(expected_citation)
-                    else:
-                        citation_texts.append(f"[{citation_number}]")
-            citation_text = ', '.join(citation_texts)
-            text = text.replace(f"[{match}]", citation_text)
-        except (ValueError, IndexError):
-            text = text.replace(f"[{match}]", "")
+        start_pos = 0
+        while (start_pos := text.find(f"[{match}]", start_pos)) != -1:
+            # Check if this occurrence is part of an already formatted citation
+            substring = text[start_pos:]
+            if not formatted_citation_pattern.match(substring):
+                try:
+                    citation_numbers = [int(num.strip()) for num in match.split(',')]
+                    citation_texts = []
+                    for citation_number in citation_numbers:
+                        if 1 <= citation_number <= len(search_results):
+                            result = search_results[citation_number - 1]
+                            link = result.get('url', '')
+                            if link.strip():
+                                formatted_citation = f'[{citation_number}]({link})'
+                                citation_texts.append(formatted_citation)
+                            else:
+                                citation_texts.append(f"[{citation_number}]")
+                        else:
+                            citation_texts.append(f"[{citation_number}]")
+                    citation_text = ', '.join(citation_texts)
+                    # Replace only this specific instance
+                    text = text[:start_pos] + citation_text + text[start_pos + len(f"[{match}]"):]
+                    start_pos += len(citation_text)
+                except (ValueError, IndexError):
+                    text = text[:start_pos] + "" + text[start_pos + len(f"[{match}]"):]
+                    start_pos += 1
+            else:
+                # Skip this occurrence since it's already formatted
+                start_pos += len(f"[{match}]")
     
     return text
 
