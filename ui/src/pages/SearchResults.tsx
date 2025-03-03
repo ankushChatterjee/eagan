@@ -176,8 +176,7 @@ function SearchResults() {
           },
           body: JSON.stringify({ chat_id: chatId, query: searchQuery })
         });
-        setStreamStatus(prev => ({ ...prev, queries: [] }));
-        setStreamStatus(prev => ({ ...prev, pendingQuery: true }));
+        setStreamStatus(prev => ({ ...prev, queries: [], pendingQuery: true, resultsCount: undefined }));
         setStreamingSummary('');
         setStreamedSearchResults([]);
       } catch (error) {
@@ -369,7 +368,7 @@ function SearchResults() {
                         </div>
                       </div>
                     )}
-                    {streamStatus.resultsCount && (
+                    {streamStatus.resultsCount && streamStatus.resultsCount > 0 && (
                       <div className="animate-fade-in-up text-center">
                         <p className="text-xl font-display text-[#F2EEC8]/90">
                           Reading {streamStatus.resultsCount} search results...
