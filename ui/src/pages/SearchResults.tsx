@@ -9,12 +9,47 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
+// @ts-ignore
 import { EventSourcePolyfill } from "event-source-polyfill";
 import { useState, useEffect, useRef } from 'react';
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import rehypePrism from 'rehype-prism-plus';
-import { set } from 'react-hook-form';
+
+// Custom shimmer animation styles
+const customShimmerStyles = `
+  @keyframes enhanced-shimmer {
+    0% {
+      background-position: -200% 0;
+      text-shadow: 0 0 20px rgba(242, 238, 200, 0);
+    }
+    50% {
+      text-shadow: 0 0 30px rgba(242, 238, 200, 0.5);
+    }
+    100% {
+      background-position: 200% 0;
+      text-shadow: 0 0 20px rgba(242, 238, 200, 0);
+    }
+  }
+  
+  .enhanced-shimmer {
+    background: linear-gradient(
+      90deg, 
+      rgba(242, 238, 200, 0.4) 0%, 
+      rgba(242, 238, 200, 1) 25%, 
+      rgba(242, 238, 200, 1) 50%, 
+      rgba(242, 238, 200, 0.4) 75%
+    );
+    background-size: 200% 100%;
+    animation: enhanced-shimmer 3s ease-in-out infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+    display: inline-block;
+    filter: drop-shadow(0 0 10px rgba(242, 238, 200, 0.1));
+  }
+`;
 
 function SearchResults() {
   const navigate = useNavigate();
@@ -54,7 +89,7 @@ function SearchResults() {
 
       return new Promise<SearchResponse>((resolve, reject) => {
         const eventSource = new EventSourcePolyfill(
-          `http://localhost:8000/stream-search-with-history?chat_id=${queryKey[1] || ''}&q=${encodeURIComponent(queryKey[2] || '')}`,
+          `http://localhost:8000/stream-search-with-history?chat_id=${queryKey[1] || ''}&q=${encodeURIComponent(queryKey[2] || '')}` as string,
           {
             headers: { 'Accept': 'text/event-stream' },
             heartbeatTimeout: 60000,
@@ -143,7 +178,7 @@ function SearchResults() {
       });
     },
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
     retry: 1,
   });
 
@@ -235,7 +270,7 @@ function SearchResults() {
               <>
                 {displaySearchResults
                   .slice(0, showAllSources ? undefined : 5)
-                  .map((result, index) => (
+                  .map((result: any, index: number) => (
                     <a
                       key={index}
                       href={result.url}
@@ -286,7 +321,7 @@ function SearchResults() {
                       <div className="flex -space-x-1.5 mr-1">
                         {displaySearchResults
                           .slice(5, 8)
-                          .map((result, index) => (
+                          .map((result: any, index: number) => (
                             <div
                               key={index}
                               className="w-4 h-4 bg-white/[0.03] p-0.5 
@@ -334,26 +369,26 @@ function SearchResults() {
               {isStreaming && !streamingSummary ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-6">
                   <div className="flex flex-col items-center space-y-6">
+                    <style>{customShimmerStyles}</style>
                     <div className="flex items-center gap-3">
-                      <LoaderPinwheel className="w-6 h-6 text-[#F2EEC8] animate-spin" />
-                      <h2 className="text-2xl font-display tracking-tight text-[#F2EEC8]/90">
+                      <span className="text-4xl font-display tracking-tight font-bold enhanced-shimmer">
                         Browsing the web
-                      </h2>
+                      </span>
                     </div>
                     {streamStatus.queries && (
                       <div className="flex flex-col items-center space-y-4 w-full max-w-xl">
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {streamStatus.queries.map((q, i) => (
+                          {streamStatus.queries.map((q: string, i: number) => (
                             <Pill
                               key={i}
                               className={cn(
                                 "animate-slide-up transition-all duration-500 flex items-center gap-2",
                                 !streamStatus.resultsCount && "animate-glow"
                               )}
-                              style={{ animationDelay: `${i * 150}ms` }}
                             >
                               <SearchIcon className="w-4 h-4 text-[#F2EEC8]/70" />
                               <span className="text-sm">{q}</span>
+                              <span style={{ animationDelay: `${i * 150}ms` }} className="sr-only">Delay</span>
                             </Pill>
                           ))}
                         </div>
@@ -361,9 +396,9 @@ function SearchResults() {
                     )}
                     {streamStatus.resultsCount && streamStatus.resultsCount > 0 && (
                       <div className="animate-fade-in-up text-center">
-                        <p className="text-xl font-display text-[#F2EEC8]/90">
+                        <span className="text-2xl font-display tracking-tight font-bold enhanced-shimmer">
                           Reading {streamStatus.resultsCount} search results...
-                        </p>
+                        </span>
                       </div>
                     )}
                   </div>
@@ -389,7 +424,7 @@ function SearchResults() {
                   </div>
                   {searchResult?.suggestions && currentChatIndex === (streamStatus.chatHistory?.length || 0) - 1 && (
                     <div className="flex flex-wrap gap-2 mt-6 fade-in-up">
-                      {searchResult.suggestions.map((suggestion, index) => (
+                      {(searchResult as any).suggestions.map((suggestion: string, index: number) => (
                         <Pill
                           key={index}
                           onClick={() => handleSearch(suggestion)}
@@ -417,8 +452,8 @@ function SearchResults() {
                   </>
                 ) : (
                   displaySearchResults
-                    .filter(result => result.thumbnail && !result.thumbnail.logo)
-                    .map((result, index) => (
+                    .filter((result: any) => result.thumbnail && !result.thumbnail.logo)
+                    .map((result: any, index: number) => (
                       <a
                         key={index}
                         href={result.thumbnail!.src}
