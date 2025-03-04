@@ -212,8 +212,6 @@ body {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-
-
 @layer base {}
 
 @layer base {
@@ -225,7 +223,6 @@ body {
     @apply bg-background text-foreground;
   }
 }
-
 
 @keyframes bounceIn {
   0% {
@@ -243,6 +240,18 @@ body {
   }
 
   100% {
+    transform: translateY(0);
+  }
+}
+
+/* Animations */
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
     transform: translateY(0);
   }
 }

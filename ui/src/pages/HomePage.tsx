@@ -1,13 +1,20 @@
 import { Button } from "@/components/ui/button"
-import { LightbulbIcon, ChevronUpIcon, BookOpenIcon, ChevronRightIcon } from "lucide-react"
+import { LightbulbIcon, ChevronUpIcon, BookOpenIcon, ChevronRightIcon, MessageSquareIcon, ClockIcon } from "lucide-react"
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { cn } from "@/lib/utils"
+
+interface Chat {
+  chat_id: string
+  chat_title: string
+  created_at: string
+}
 
 export default function HomePage() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [chats, setChats] = useState([])
+  const [chats, setChats] = useState<Chat[]>([])
   const [chatsLoading, setChatsLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [showAllChats, setShowAllChats] = useState(false)
@@ -155,12 +162,16 @@ export default function HomePage() {
             </div>
           </div>
         </form>
+
         {/* History Button */}
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 font-serif blur-[0.3px] z-50">
           <Button
             variant="ghost"
             onClick={() => setShowHistory(!showHistory)}
-            className="text-[#F2EEC8] flex items-center gap-2 z-50 text-md duration-300 transition-all"
+            className={cn(
+              "text-[#F2EEC8] flex items-center gap-2 z-50 text-md duration-300 transition-all",
+              showHistory && "bg-[#F2EEC8]/10"
+            )}
             disabled={chatsLoading}
           >
             <BookOpenIcon className="w-5 h-5" />
@@ -172,80 +183,113 @@ export default function HomePage() {
         {/* Semi-Circular Glow */}
         {showHistory && (
           <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-96 h-96">
-            <div className="w-full h-full bg-[#F2EEC8] translate-y-1/2 opacity-100 blur-[150px] rounded-full shadow-[0_0_1px_rgba(242,238,200,0.15)"></div>
+            <div className="w-full h-full bg-[#F2EEC8] translate-y-1/2 opacity-100 blur-[150px] rounded-full shadow-[0_0_1px_rgba(242,238,200,0.15)]"></div>
           </div>
         )}
       </div>
+
       {/* History Modal */}
       {showHistory && (
-        <div className="fixed inset-0 w-[100vw] h-[100vh] m-0 mx-0 my-0 p-0 bg-black backdrop-blur-sm bg-opacity-50 flex items-end justify-center z-30" onClick={handleCloseHistory}>
-          <div className="rounded-lg p-6 w-full max-w-2xl mx-auto relative mb-16 max-h-[80vh] overflow-y-auto hide-scrollbar">
-            {chatsLoading ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, index) => (
-                  <div key={index} className="animate-pulse flex space-x-4">
-                    <div className="rounded-full bg-gray-700 h-10 w-10"></div>
-                    <div className="flex-1 space-y-4 py-1">
-                      <div className="h-4 bg-gray-700 rounded w-3/4"></div>
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-700 rounded"></div>
-                        <div className="h-4 bg-gray-700 rounded w-5/6"></div>
+        <div 
+          className="fixed inset-0 w-[100vw] h-[100vh] m-0 mx-0 my-0 p-0 bg-black/30 backdrop-blur-[2px] flex items-end justify-center z-30" 
+          onClick={handleCloseHistory}
+        >
+          <div className="w-full max-w-2xl mx-auto relative mb-16 max-h-[80vh] overflow-y-auto hide-scrollbar px-6">
+            <div className="space-y-4 font-round">
+              <div className="flex items-center justify-end mb-2">
+                <span className="text-[#F2EEC8] text-sm tracking-wide">{chats.length} explorations collected</span>
+              </div>
+
+              {chatsLoading ? (
+                <div className="space-y-6">
+                  {[...Array(3)].map((_, index) => (
+                    <div 
+                      key={index} 
+                      className="animate-pulse flex space-x-4 p-4 rounded-xl backdrop-blur-sm bg-[#121211]/90"
+                      style={{
+                        transform: `translateY(${index * 5}px)`,
+                        opacity: 1 - (index * 0.02)
+                      }}
+                    >
+                      <div className="rounded-full bg-[#F2EEC8]/40 h-10 w-10"></div>
+                      <div className="flex-1 space-y-3">
+                        <div className="h-4 bg-[#F2EEC8]/40 rounded-full w-3/4"></div>
+                        <div className="h-3 bg-[#F2EEC8]/30 rounded-full w-1/2"></div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2 font-round relative">
-                {chats.slice(0, showAllChats ? chats.length : 7).map((chat, index) => (
-                  <div
-                    key={chat.chat_id}
-                    onClick={() => handleChatClick(chat.chat_id)}
-                    className="flex items-center justify-between p-3 cursor-pointer bg-[#0b0b0a] 
-                                 rounded-sm border border-[#2b2a20] transition-all duration-300 hover:shadow-[0_0_31px_rgba(242,238,200,0.15)]
-                                  hover:border-[#F2EEC8]/30 
-                                  after:bg-[#F2EEC8]/5 after:blur-xl after:opacity-0
-                                  after:transition-opacity hover:after:opacity-100"
-                    style={{
-                      animation: index < 7 ? `bounceIn 0.6s ${(Math.min(7, chats.length) - index) * 0.02}s both` : 'none'
-                    }}
-                  >
-                    <div className="flex-1 text-left">
-                      <strong className="font-semibold text-[#f2f0e0] overflow-ellipsis">{chat.chat_title}</strong>
-                      <p className="text-sm text-gray-400">{formatDate(chat.created_at)}</p>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {chats.slice(0, showAllChats ? chats.length : 7).map((chat, index) => (
+                    <div
+                      key={chat.chat_id}
+                      onClick={() => handleChatClick(chat.chat_id)}
+                      className={cn(
+                        "group flex items-center gap-4 p-4 cursor-pointer rounded-xl",
+                        "backdrop-blur-[3px]",
+                        "bg-[#121211]/90 hover:bg-[#1a1a19]/90",
+                        "border border-[#F2EEC8]/10 hover:border-[#F2EEC8]/30",
+                        "transition-all duration-300",
+                        "hover:shadow-[0_0_25px_rgba(242,238,200,0.15)]",
+                        "hover:-translate-y-0.5"
+                      )}
+                      style={{
+                        transform: `translateY(${index * 2}px)`,
+                        opacity: 1,
+                        animation: index < 7 ? `floatIn 0.4s ${(Math.min(7, chats.length) - index) * 0.03}s both` : 'none'
+                      }}
+                    >
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#F2EEC8]/[0.3] flex items-center justify-center group-hover:bg-[#F2EEC8]/[0.4] transition-colors duration-300">
+                        <MessageSquareIcon className="w-5 h-5 text-[#F2EEC8] group-hover:text-[#F2EEC8]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-[#F2EEC8] font-medium truncate group-hover:text-[#F2EEC8]">
+                          {chat.chat_title}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <ClockIcon className="w-3 h-3 text-[#F2EEC8]/90" />
+                          <p className="text-sm text-[#F2EEC8]/90 font-light tracking-wide">{formatDate(chat.created_at)}</p>
+                        </div>
+                      </div>
+                      <ChevronRightIcon className="w-4 h-4 text-[#F2EEC8]/80 group-hover:text-[#F2EEC8] group-hover:translate-x-0.5 transition-all duration-300" />
                     </div>
-                  </div>
-                ))}
-                {!showAllChats && chats.length > 7 && (
-                  <button
-                    onClick={() => setShowAllChats(true)}
-                    className="flex-none flex items-center gap-4 px-4 py-2.5 rounded-md 
-                        bg-[#2A2B28] hover:bg-[#32332F] border border-white/5
-                        transition-all duration-300 hover:border-[#F2EEC8]/20
-                        text-white/60 hover:text-[#F2EEC8] group animate-fade-in min-w-fit"
-                  >
-                    <span className="text-sm font-display whitespace-nowrap">
-                      Show more
-                    </span>
-                    <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
-                )}
-                {showAllChats && (
-                  <button
-                    onClick={() => setShowAllChats(false)}
-                    className="flex-none flex items-center gap-2 px-4 py-2.5 rounded-md 
-                        bg-[#2A2B28] hover:bg-[#32332F] border border-white/5
-                        transition-all duration-300 hover:border-[#F2EEC8]/20
-                        text-white/60 hover:text-[#F2EEC8] group animate-fade-in"
-                  >
-                    <span className="text-sm font-display whitespace-nowrap">
-                      Show less
-                    </span>
-                    <ChevronRightIcon className="w-4 h-4 rotate-180 group-hover:-translate-x-0.5 transition-transform" />
-                  </button>
-                )}
-              </div>
-            )}
+                  ))}
+
+                  {!showAllChats && chats.length > 7 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAllChats(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-6
+                        text-[#F2EEC8]/90 hover:text-[#F2EEC8]
+                        transition-all duration-300 group"
+                    >
+                      <span className="text-sm font-light tracking-wide">
+                        Reveal {chats.length - 7} more
+                      </span>
+                      <ChevronRightIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-300" />
+                    </button>
+                  )}
+
+                  {showAllChats && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAllChats(false);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-6
+                        text-[#F2EEC8]/90 hover:text-[#F2EEC8]
+                        transition-all duration-300 group"
+                    >
+                      <span className="text-sm font-light tracking-wide">Show less</span>
+                      <ChevronUpIcon className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform duration-300" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
