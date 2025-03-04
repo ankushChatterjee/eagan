@@ -128,6 +128,27 @@ function SearchResults() {
   const [currentChatIndex, setCurrentChatIndex] = useState<number>(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // Add state for tracking loaded images
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+
+  // Function to handle successful image loads
+  const handleImageLoad = (src: string) => {
+    setLoadedImages(prev => {
+      const newSet = new Set(prev);
+      newSet.add(src);
+      return newSet;
+    });
+  };
+
+  // Function to handle image load errors
+  const handleImageError = (src: string) => {
+    setLoadedImages(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(src);
+      return newSet;
+    });
+  };
+
   // Fetch chat history and perform search
   const {
     data: searchResult,
@@ -497,12 +518,17 @@ function SearchResults() {
                         href={result.thumbnail!.src}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block group relative animate-fade-in-down mb-3 break-inside-avoid"
+                        className={cn(
+                          "block group relative animate-fade-in-down mb-3 break-inside-avoid",
+                          !loadedImages.has(result.thumbnail!.src) && "hidden"
+                        )}
                       >
                         <div className="overflow-hidden rounded-lg">
                           <img
                             src={result.thumbnail!.src}
                             alt={result.title}
+                            onLoad={() => handleImageLoad(result.thumbnail!.src)}
+                            onError={() => handleImageError(result.thumbnail!.src)}
                             className="w-full transform transition-all duration-500
                               group-hover:scale-110 
                               group-hover:shadow-[0_0_30px_rgba(242,238,200,0.2)]"
