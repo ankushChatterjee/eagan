@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SearchIcon, Loader2, LoaderPinwheel, ChevronRightIcon, ChevronLeftIcon } from "lucide-react";
+import { SearchIcon, Loader2, ChevronRightIcon, ChevronLeftIcon } from "lucide-react";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Pill } from "@/components/ui/pill";
 import { SearchResponse } from '@/types/search';
@@ -319,8 +319,8 @@ function SearchResults() {
     <div className="min-h-screen bg-[#1E1F1C] text-white relative overflow-x-hidden">
       <style>{customShimmerStyles}</style>
       <div className="container mx-auto px-4 py-8 pb-32">
-        <div className={`pb-6 mb-6 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
-          <div className="flex items-center gap-3 mb-4">
+        <div className={`pb-4 mb-4 ${isTransitioning ? 'transition-opacity duration-300 opacity-50' : 'opacity-100'}`}>
+          <div className="flex items-center gap-3 mb-3">
             <h3 className="text-sm font-display text-[#F2EEC8]/60 uppercase tracking-wider">Sources</h3>
             <div className="h-px flex-1 bg-gradient-to-r from-[#F2EEC8]/10 to-transparent"></div>
           </div>
@@ -350,7 +350,7 @@ function SearchResults() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-none glass-effect
-                      px-5 py-3.5 rounded-lg
+                      px-4 py-2.5 rounded-lg
                       hover:border-[#F2EEC8]/30 
                       hover:shadow-[0_0_40px_rgba(242,238,200,0.08)]
                       relative overflow-visible group
@@ -359,8 +359,8 @@ function SearchResults() {
                       hover:z-10"
                       style={{ animationDelay: `${index * 80}ms` }}
                     >
-                      <div className="flex items-center gap-4 w-56">
-                        <div className="w-5 h-5 rounded-sm bg-white/[0.05] p-0.5 flex items-center justify-center
+                      <div className="flex items-center gap-3 w-48">
+                        <div className="w-4 h-4 rounded-sm bg-white/[0.05] p-0.5 flex items-center justify-center
                           ring-1 ring-white/10 group-hover:ring-[#F2EEC8]/30 transition-all">
                           <img
                             src={result.meta_url.favicon}
@@ -369,11 +369,11 @@ function SearchResults() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-white/90 text-sm leading-relaxed font-display truncate
+                          <p className="text-white/90 text-xs leading-relaxed font-display truncate
                           group-hover:text-[#F2EEC8] transition-colors">
                             {result.title}
                           </p>
-                          <p className="text-white/40 text-xs truncate mt-1.5 font-mono">
+                          <p className="text-white/40 text-[10px] truncate mt-1 font-mono">
                             {new URL(result.url).hostname}
                           </p>
                         </div>

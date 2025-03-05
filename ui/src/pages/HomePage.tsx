@@ -133,13 +133,19 @@ export default function HomePage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="What would you like to explore?"
                 rows={3}
-                className="w-full bg-[#19191A] border-2 border-[#F2EEC8]/20 text-white placeholder:text-white/50 rounded-2xl px-6 py-5 text-lg font-round 
+                className="w-full bg-[#19191A]/80 backdrop-blur-sm border-2 border-[#F2EEC8]/20 text-white placeholder:text-white/50 rounded-2xl px-6 py-5 text-lg font-round 
                   shadow-[0_0_0_1px_rgba(242,238,200,0.05)] 
                   focus-visible:outline-none 
-                  focus-visible:shadow-[0_0_20px_rgba(242,238,200,0.2)] 
+                  focus-visible:shadow-[0_0_30px_rgba(242,238,200,0.15)] 
                   focus-visible:border-[#F2EEC8]/40
-                  transition-shadow duration-300
-                  resize-none"
+                  transition-all duration-300 ease-in-out
+                  resize-none
+                  hover:border-[#F2EEC8]/30
+                  hover:shadow-[0_0_15px_rgba(242,238,200,0.1)]
+                  placeholder:opacity-50
+                  placeholder:transition-opacity
+                  placeholder:duration-300
+                  focus:placeholder:opacity-70"
                 disabled={isLoading}
               />
               <Button
