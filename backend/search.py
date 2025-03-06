@@ -6,6 +6,18 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 from prompts import followup_breakdown_prompt, breakdown_prompt, summarize_prompt, suggest_prompt
+import asyncio
+import atexit
+
+# Create a shared ThreadPoolExecutor for web searches
+# Using max_workers=5 as that was the original setting
+web_search_executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="web_search")
+
+# Ensure proper cleanup on application shutdown
+def cleanup_threadpool():
+    web_search_executor.shutdown(wait=True)
+
+atexit.register(cleanup_threadpool)
 
 lite_llm_model = "gemini/gemini-2.0-flash-lite"
 llm_model = "gemini/gemini-2.0-flash"
@@ -79,18 +91,16 @@ def web_search(terms: list = None, country: str = None):
     
     all_results = []
     
-    # Use ThreadPoolExecutor for concurrent searches
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        # Submit all search tasks
-        future_to_term = {
-            executor.submit(brave_single_search, term, country): term 
-            for term in terms
-        }
-        
-        # Collect results as they complete
-        for future in as_completed(future_to_term):
-            results = future.result()
-            all_results.extend(results)
+    # Use the shared ThreadPoolExecutor instead of creating a new one
+    future_to_term = {
+        web_search_executor.submit(brave_single_search, term, country): term 
+        for term in terms
+    }
+    
+    # Collect results as they complete
+    for future in as_completed(future_to_term):
+        results = future.result()
+        all_results.extend(results)
     
     return all_results, []
 
@@ -142,7 +152,7 @@ async def summarize_search_results(query: str = None, context: str = None, chat_
         max_tokens=50049,
         temperature=0.6,
         stream=True,
-        api_key=os.getenv('GEMINI_API_KEY')
+        api_key=os.getenv('GEMINI_API_KEY'),
     )
     
     for part in response:
@@ -362,6 +372,57 @@ async def test_search():
     summary = ""
     async for part in summarize_search_results(test_query, context, mock_history):
         summary += part
+
+def search_sync(query: str, terms: list, country: str = "US", chat_history: list = None):
+    """
+    Synchronous version of search that takes pre-defined search terms.
+    
+    Args:
+        query (str): The original search query
+        terms (list): List of search terms to use
+        country (str, optional): Country code for search. Defaults to "US".
+        chat_history (list, optional): Chat history for context. Defaults to None.
+    
+    Returns:
+        dict: Dictionary containing search results, summary, and suggestions
+    """
+    try:
+        # Perform web search and get results
+        search_results, detailed_content = web_search(terms, country)
+        search_results = deduplicate_results(search_results)
+        
+        # Convert to text and prepare for analysis
+        context = convert_search_to_text(search_results, detailed_content)
+        
+        # Generate summary using asyncio to handle the async generator
+        async def get_summary():
+            summary = ""
+            async for part in summarize_search_results(query, context, chat_history):
+                summary += part
+            return summary
+            
+        # Run the async function in an event loop
+        summary = asyncio.run(get_summary())
+        
+        # Fix citations in the summary
+        summary = fix_citations(summary, search_results)
+        
+        # Get suggestions
+        suggestions_result = suggestions(query, summary)
+        
+        return {
+            "query": query,
+            "search_results": search_results,
+            "summary": summary,
+            "suggestions": suggestions_result,
+            "status": "SEARCH_DONE"
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "status": "ERROR"
+        }
 
 if __name__ == "__main__":
     import asyncio
