@@ -6,9 +6,10 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 from prompts import followup_breakdown_prompt, breakdown_prompt, summarize_prompt, suggest_prompt
-import asyncio
 import atexit
+from dotenv import load_dotenv
 
+load_dotenv()
 # Create a shared ThreadPoolExecutor for web searches
 # Using max_workers=5 as that was the original setting
 web_search_executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="web_search")
@@ -373,37 +374,20 @@ async def test_search():
     async for part in summarize_search_results(test_query, context, mock_history):
         summary += part
 
-def search_sync(query: str, terms: list, country: str = "US", chat_history: list = None):
-    """
-    Synchronous version of search that takes pre-defined search terms.
-    
-    Args:
-        query (str): The original search query
-        terms (list): List of search terms to use
-        country (str, optional): Country code for search. Defaults to "US".
-        chat_history (list, optional): Chat history for context. Defaults to None.
-    
-    Returns:
-        dict: Dictionary containing search results, summary, and suggestions
-    """
+async def search_sync(query: str, terms: list, country: str = "US", chat_history: list = None):
     try:
         # Perform web search and get results
-        search_results, detailed_content = web_search(terms, country)
+        breakdown_terms = breakdown(query, is_follow_up=False, history=None)
+        search_results, detailed_content = web_search(breakdown_terms, country)
         search_results = deduplicate_results(search_results)
         
         # Convert to text and prepare for analysis
         context = convert_search_to_text(search_results, detailed_content)
         
-        # Generate summary using asyncio to handle the async generator
-        async def get_summary():
-            summary = ""
-            async for part in summarize_search_results(query, context, chat_history):
-                summary += part
-            return summary
+        summary = ""
+        async for part in summarize_search_results(query, context, chat_history):
+            summary += part
             
-        # Run the async function in an event loop
-        summary = asyncio.run(get_summary())
-        
         # Fix citations in the summary
         summary = fix_citations(summary, search_results)
         
@@ -424,9 +408,9 @@ def search_sync(query: str, terms: list, country: str = "US", chat_history: list
             "status": "ERROR"
         }
 
-if __name__ == "__main__":
-    import asyncio
-    from dotenv import load_dotenv
+# if __name__ == "__main__":
+#     import asyncio
+#     from dotenv import load_dotenv
     
-    load_dotenv()
-    asyncio.run(test_search())
+#     load_dotenv()
+#     asyncio.run(test_search())

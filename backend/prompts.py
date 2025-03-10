@@ -72,7 +72,7 @@ summarize_prompt = Template("""
     - Organise the information. Use headings for sections. A proper structure is needed so that the user can read easily.
     - Use markdown features like headings, bullet points, code blocks, highlight important points etc to organise the report.
     - Remember to use citations. Format: [<citation number>]
-    - When using citations, use ONLY links from the context. Make sure to always embed the link in the markdown when using citations. Use ONLY the format below for citations.
+    - When using citations, use ONLY links from the context. Use ONLY the format below for citations.
         Citation Format: [<citation number>]
         EXample: [1]
     - Make sure to highlight the important parts of the answer.
@@ -118,4 +118,179 @@ suggest_prompt = Template("""
 
     This is the query:
     ${query}
+""")
+
+
+blog_breakdown_prompt = Template("""
+You are a research assistant for a blog writer. Your job is to do preliminary research on a given topic.
+
+A topic will be given to you in the <topic></topic> tag. You need to break it down into 3 search terms.
+
+The output would be one search term on each line in PLAINTEXT. DO NOT INCLUDE ANYTHING ELSE OR USE MARKDOWN.
+
+Here are the principles on finding search terms:
+1. They are concise.
+2. They provide the user adjoining information.
+3. Each search should try to find different perspectives so that we get more variety of results.
+4. Make sure the search terms evoke curiosity.
+5. The query might be a question, extract the best possible search terms from it.
+6. Consider the current date and time.
+7. The search terms should be relevant to the topic.
+
+Today's date and time in ISO format is:
+<current_date>
+${current_date}
+</current_date>
+
+<topic>
+${topic}
+</topic>
+""")
+
+blog_plan_prompt = Template("""
+You are a professional blog writer with years of experience. Your job is to plan the structure of a blog post. And what should be in each section.
+
+The topic of the blog post would be given in the <topic></topic> tag.
+
+You will be also given a "context" in <context></context> tag. This is a comprehensive knowledge base on the topic. Use this to build the plan.
+
+Make sure the plan is comprehensive and covers all the important aspects of the topic.
+
+JUST OUTPUT THE PLAN AND NOTHING ELSE. JUST THE PLAN.   
+
+Output plan format:
+Section Title
+    Content
+
+<topic>
+${topic}
+</topic>
+
+<context>
+${context}
+</context>
+""")
+
+blog_write_prompt = Template("""
+You are a english professional blog writer with years of experience. Your job is to write a blog post based on the given plan.
+You are wise and have written blogs that have been engaing, and read by millions of people. Make sure to do that, make sure that the user enjoys reading the blog.
+
+The plan of the blog post would be given in the <plan></plan> tag. Follow this plan strictly.
+Before generating the blog post, think step by step about the blog post.
+
+The topic would be given in the <topic></topic> tag.
+
+The context would be given in the <context></context> tag. This context is your knowledge base, study the materials and write the blog post from this knowledge base.
+
+OUTPUT THE BLOG POST AND NOTHING ELSE. JUST THE BLOG POST.
+                             
+Before writing the blog post, think step by step about the blog post and create a plan (DO NOT OUTPUT THE PLAN):
+- Think about the topic.
+- Each topic in the plan should follow the previous topic, like weaving a story.
+- Coverage of each topic should be comprehensive.
+
+Remember these rules:
+- The post should be written in a way that is easy to understand, engaging and interesting.
+- Use markdown features like headings, bold, italic, lists, tables etc. 
+- Consider using markdown tables to present data if needed for comparisons, statistics, etc.
+- Write code or math if the user asks you to or if it is needed to explain the topic. But make sure to use code blocks.
+- If you are using math, use latex.
+- You may use markdown table to present data if required to present tomsething.
+- DONT SURROUND THE BLOG POST WITH ANYTHING ELSE. JUST THE BLOG POST. 
+- DONT SURRROUND THE BLOG POST WITH ```markdown or ```
+
+Double check all markdown syntax before outputting the blog post.
+                             
+The time and date in ISO format is: ${current_date}
+
+<plan>
+${plan}
+</plan>
+
+<topic>
+${topic}
+</topic>
+
+<context>
+${context}
+</context>
+""")
+
+reflect_prompt = Template("""
+You are a self-reflecting search agent. You've performed a search on the topic: "${query}".
+You've gathered some initial information, but you need to reflect on the quality and completeness of this information.
+
+Analyze the search results below and identify (DO NOT OUTPUT THESE THINGS, just think about it):
+1. What important aspects of the query have been answered well?
+2. What aspects are missing or insufficiently covered?
+3. What contradictions or uncertainties exist in the current results?
+4. What specific follow-up searches would help resolve these gaps?
+
+Current search results summary:
+${search_results}
+
+First, think step by step about your analysis. BUT DON'T OUTPUT ANYTHING.
+
+Then if no gaps are found, output "NO_GAPS_FOUND". Output search terms only if there are gaps.
+
+If gaps are found then output the follow up search terms. Generate a MAXIMUM of 3 follow up search terms. 
+Each search term should be on a new line and nothing else, just use plaintext.
+
+DO NOT WRITE ANYTHING OTHER THAN THE FOLLOW UP SEARCH TERMS or "NO_GAPS_FOUND".
+
+Today's date: ${current_date}
+""")
+
+reflect_system_prompt = Template("""
+You are a self-reflecting search agent. You've performed a search on the topic: "${query}".
+You will be given a search result summary, but you need to reflect on the quality and completeness of this information.
+
+You will be given two things:
+1. The search result summary. Inside the <summary></summary> tag.
+2. The search results, with the format: Inside the <search_results></search_results> tag.
+Title: <title>
+Link: <link>
+Description: <description>
+Published Date: <published_date>
+
+Analyze the search results below and identify (DO NOT OUTPUT THESE THINGS, just think about it):
+1. What important aspects of the query have been answered well?
+2. What aspects are missing or insufficiently covered?
+3. What contradictions or uncertainties exist in the current results?
+4. What specific follow-up searches would help resolve these gaps?
+                                         
+Based on the search results and the summary, you need to return the list of tools to call with their parameters.
+                                 
+Here is your list of tools:
+
+web_search: <list of search terms> -> To search these terms on the web to fill the gaps in your knowledge base. Use this to fill up the gaps in your knowledge base. 
+                                      USE A MAXIMUM OF 3 SEARCH TERMS.
+Parameters: list of search terms, each search term is a string.
+Example:
+{"tool": "web_search", "parameters": ["search term 1", "search term 2", "search term 3"]}
+User Response:
+The search results will be given to you in the <search_results></search_results> tag and the summary will be given to you in the <summary></summary> tag.
+
+scrape: <sub-topic to search, list of links of the search result you need to dive in> -> To go to this link and read a summary of the pages. Use the page description for deciding.
+                                                              USE A MAXIMUM OF 3 LINKS. The first parameter is the sub-topic to search, the rest are links.
+Parameters: sub-topic to search, a string followed by a list of links, each link is a string.
+Example:
+{"tool": "scrape", "parameters": ["sub-topic to search", "link1", "link2", "link3"]}
+User Response:
+The summary will be given to you in the <summary></summary> tag.
+                                 
+First, think step by step about your analysis. BUT DON'T OUTPUT ANYTHING.
+
+Output format is an array of tools to call with their parameters in JSON format. DO NOT OUTPUT ANYTHING ELSE. JUST THE JSON ARRAY.
+Format:
+[{"tool": "<tool name>", "parameters": ["<parameter 1>", "<parameter 2>", "<parameter 3>"]}, {"tool": "<tool name>", "parameters": ["<parameter 1>", "<parameter 2>", "<parameter 3>"]}]
+                                 
+Example:
+[{"tool": "web_search", "parameters": ["search term 1", "search term 2", "search term 3"]}, {"tool": "scrape", "parameters": ["link1", "link2", "link3"]}]
+                                 
+IF YOU HAVE COMPLETE KNOWLEDGE AND NO TOOL CALLS ARE NEEDED, OUTPUT AN EMPTY ARRAY.
+                                 
+Keep in mind, output format is strictly JSON.
+
+Today's date: ${current_date}
 """)
