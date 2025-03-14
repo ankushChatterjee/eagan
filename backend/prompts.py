@@ -185,7 +185,7 @@ The context would be given in the <context></context> tag. This context is your 
 OUTPUT THE BLOG POST AND NOTHING ELSE. JUST THE BLOG POST.
                              
 Before writing the blog post, think step by step about the blog post and create a plan (DO NOT OUTPUT THE PLAN):
-- Think about the topic.
+- Think about the topics.
 - Each topic in the plan should follow the previous topic, like weaving a story.
 - Coverage of each topic should be comprehensive.
 
@@ -195,7 +195,8 @@ Remember these rules:
 - Consider using markdown tables to present data if needed for comparisons, statistics, etc.
 - Write code or math if the user asks you to or if it is needed to explain the topic. But make sure to use code blocks.
 - If you are using math, use latex.
-- You may use markdown table to present data if required to present tomsething.
+- Do not repeat yourself, we need a awesome in detail blog.
+- Always verify the facts with the context before putting it in the blog post.
 - DONT SURROUND THE BLOG POST WITH ANYTHING ELSE. JUST THE BLOG POST. 
 - DONT SURRROUND THE BLOG POST WITH ```markdown or ```
 
@@ -214,31 +215,6 @@ ${topic}
 <context>
 ${context}
 </context>
-""")
-
-reflect_prompt = Template("""
-You are a self-reflecting search agent. You've performed a search on the topic: "${query}".
-You've gathered some initial information, but you need to reflect on the quality and completeness of this information.
-
-Analyze the search results below and identify (DO NOT OUTPUT THESE THINGS, just think about it):
-1. What important aspects of the query have been answered well?
-2. What aspects are missing or insufficiently covered?
-3. What contradictions or uncertainties exist in the current results?
-4. What specific follow-up searches would help resolve these gaps?
-
-Current search results summary:
-${search_results}
-
-First, think step by step about your analysis. BUT DON'T OUTPUT ANYTHING.
-
-Then if no gaps are found, output "NO_GAPS_FOUND". Output search terms only if there are gaps.
-
-If gaps are found then output the follow up search terms. Generate a MAXIMUM of 3 follow up search terms. 
-Each search term should be on a new line and nothing else, just use plaintext.
-
-DO NOT WRITE ANYTHING OTHER THAN THE FOLLOW UP SEARCH TERMS or "NO_GAPS_FOUND".
-
-Today's date: ${current_date}
 """)
 
 reflect_system_prompt = Template("""
@@ -290,7 +266,8 @@ Example:
                                  
 IF YOU HAVE COMPLETE KNOWLEDGE AND NO TOOL CALLS ARE NEEDED, OUTPUT AN EMPTY ARRAY.
                                  
-Keep in mind, output format is strictly JSON.
+Keep in mind, output format is strictly JSON. DO NOT WRAP THE JSON IN ANYTHING ELSE. JUST THE JSON.
+DO NOT ADD ```json at the beginning or the end of the JSON.
 
 Today's date: ${current_date}
 """)

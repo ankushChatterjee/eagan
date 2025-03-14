@@ -3,6 +3,7 @@ import { LightbulbIcon, ChevronUpIcon, BookOpenIcon, ChevronRightIcon, MessageSq
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Chat {
   chat_id: string
@@ -14,6 +15,7 @@ export default function HomePage() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [mode, setMode] = useState<"browse" | "blog">("browse")
   const [chats, setChats] = useState<Chat[]>([])
   const [chatsLoading, setChatsLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
@@ -36,15 +38,19 @@ export default function HomePage() {
     }
   }
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
       setIsLoading(true)
       try {
-        const chatId = await createChatSession(searchQuery)
-        navigate(`/search?chat_id=${chatId}`)
+        if (mode === "browse") {
+          const chatId = await createChatSession(searchQuery)
+          navigate(`/search?chat_id=${chatId}`)
+        } else {
+          navigate(`/blog?topic=${encodeURIComponent(searchQuery)}`)
+        }
       } catch (error) {
-        console.error('Search failed:', error)
+        console.error(`${mode === "browse" ? "Search" : "Blog generation"} failed:`, error)
       } finally {
         setIsLoading(false)
       }
@@ -75,7 +81,7 @@ export default function HomePage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         if (searchQuery.trim()) {
-          handleSearch(e as unknown as React.FormEvent)
+          handleSubmit(e as unknown as React.FormEvent)
         }
       }
     }
@@ -125,7 +131,7 @@ export default function HomePage() {
         </div>
 
         {/* Search Form */}
-        <form onSubmit={handleSearch}>
+        <form onSubmit={handleSubmit}>
           <div className="max-w-4xl mx-auto relative group blur-[0.35px]">
             <div className="relative">
               <textarea
@@ -160,14 +166,78 @@ export default function HomePage() {
                   before:animate-shimmer before:bg-[length:200%_100%]"
                 disabled={isLoading}
               >
-                <LightbulbIcon className={`w-5 h-5 mr-2.5 transition-transform group-hover:scale-110 group-hover:rotate-12 ${isLoading ? 'animate-spin' : ''}`} />
+                {mode === "browse" ? (
+                  <LightbulbIcon className={`w-5 h-5 mr-2.5 transition-transform group-hover:scale-110 group-hover:rotate-12 ${isLoading ? 'animate-spin' : ''}`} />
+                ) : (
+                  <BookOpenIcon className={`w-5 h-5 mr-2.5 transition-transform group-hover:scale-110 ${isLoading ? 'animate-spin' : ''}`} />
+                )}
                 <span className="font-round text-lg font-medium">
-                  {isLoading ? 'Loading...' : 'Browse'}
+                  {isLoading ? 'Loading...' : mode === "browse" ? 'Browse' : 'Write Blog'}
                 </span>
               </Button>
             </div>
           </div>
         </form>
+
+        {/* Mode Selector - Moved here below search box */}
+        <div className="flex justify-center items-center">
+          <div className="inline-flex rounded-full border-2 border-[#F2EEC8]/20 backdrop-blur-sm relative
+                        before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-r 
+                        before:from-[#F2EEC8]/5 before:via-[#F2EEC8]/10 before:to-[#F2EEC8]/5
+                        before:opacity-70 before:z-[-1] hover:before:opacity-100
+                        transition-all duration-300 group/selector
+                        hover:border-[#F2EEC8]/30 hover:shadow-[0_0_20px_rgba(242,238,200,0.15)]">
+            <div className="absolute inset-0 bg-[#F2EEC8]/5 rounded-full opacity-0 group-hover/selector:opacity-100 transition-opacity duration-300"></div>
+            
+            {/* Selection Indicator */}
+            <div 
+              className={`absolute top-0 bottom-0 rounded-full bg-[#F2EEC8] transition-all duration-200 ease-in-out z-0 ${
+                mode === "browse" ? "left-0 right-[50%]" : "left-[50%] right-0"
+              }`}
+              style={{
+                boxShadow: "0 0 20px rgba(242, 238, 200, 0.3)",
+              }}
+            ></div>
+            
+            <button
+              className={`relative z-10 px-6 py-2.5 rounded-full transition-all duration-200 flex items-center justify-center gap-2 w-[140px] ${
+                mode === "browse" 
+                  ? "text-[#1E1F1C]" 
+                  : "text-[#F2EEC8] hover:text-white"
+              }`}
+              onClick={() => setMode("browse")}
+              aria-pressed={mode === "browse"}
+            >
+              <span className="flex items-center justify-center">
+                <LightbulbIcon className={`w-[18px] h-[18px] transition-all duration-200 ${
+                  mode === "browse" 
+                    ? "text-[#1E1F1C] scale-100" 
+                    : "text-[#F2EEC8] scale-90"
+                }`} />
+              </span>
+              <span className={`text-sm font-medium tracking-wide`}>Browse</span>
+            </button>
+            
+            <button
+              className={`relative z-10 px-6 py-2.5 rounded-full transition-all duration-200 flex items-center justify-center gap-2 w-[140px] ${
+                mode === "blog" 
+                  ? "text-[#1E1F1C]" 
+                  : "text-[#F2EEC8] hover:text-white"
+              }`}
+              onClick={() => setMode("blog")}
+              aria-pressed={mode === "blog"}
+            >
+              <span className="flex items-center justify-center">
+                <BookOpenIcon className={`w-[18px] h-[18px] transition-all duration-200 ${
+                  mode === "blog" 
+                    ? "text-[#1E1F1C] scale-100" 
+                    : "text-[#F2EEC8] scale-90"
+                }`} />
+              </span>
+              <span className={`text-sm font-medium tracking-wide`}>Blog</span>
+            </button>
+          </div>
+        </div>
 
         {/* History Button */}
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 font-serif blur-[0.3px] z-50">

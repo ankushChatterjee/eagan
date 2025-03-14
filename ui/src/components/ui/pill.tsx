@@ -1,13 +1,14 @@
 import { cn } from "@/lib/utils";
-import { ReactNode } from "react";
+import { ReactNode, CSSProperties } from "react";
 
 interface PillProps {
   children: ReactNode;
   className?: string;
   onClick?: () => void;
+  style?: CSSProperties;
 }
 
-export function Pill({ children, className, onClick }: PillProps) {
+export function Pill({ children, className, onClick, style }: PillProps) {
   return (
     <button
       onClick={onClick}
@@ -20,6 +21,7 @@ export function Pill({ children, className, onClick }: PillProps) {
         "hover:scale-105 hover:shadow-[0_0_15px_rgba(242,238,200,0.2)]",
         className
       )}
+      style={style}
     >
       {children}
     </button>

@@ -7,6 +7,7 @@ from db import Database
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
+from blogger import stream_blog_generation
 
 app = FastAPI()
 
@@ -135,6 +136,24 @@ async def stream_search_with_history_endpoint(
             db=database,
             country=country
         ), 
+        media_type="text/event-stream"
+    )
+
+@app.get("/stream-blog-generation")
+async def stream_blog_generation_endpoint(
+    request: Request,
+    topic: str,
+    user_id: str = "anonymous"
+):
+    if not topic:
+        return {"error": "No topic provided"}
+    country = get_country_from_request(request)
+    return StreamingResponse(
+        stream_blog_generation(
+            topic=topic,
+            user_id=user_id,
+            country=country
+        ),
         media_type="text/event-stream"
     )
 
