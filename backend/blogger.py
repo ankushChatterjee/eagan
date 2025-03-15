@@ -12,7 +12,7 @@ lite_llm = "groq/qwen-qwq-32b"
 thinking_llm = "groq/deepseek-r1-distill-llama-70b"
 gemini_thinking_llm = "gemini/gemini-2.0-flash-thinking-exp-01-21"
 
-SEARCH_ITERATIONS = 4
+SEARCH_ITERATIONS = 2
 
 def process_llm_response(response_text: str) -> str:
     """Process LLM response to extract and print think tags, then return cleaned response"""

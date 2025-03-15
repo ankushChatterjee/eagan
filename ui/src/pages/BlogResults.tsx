@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, BookOpenIcon, SearchIcon, ExternalLinkIcon, AlertTriangleIcon } from "lucide-react";
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import Markdown from 'react-markdown';
+import MarkdownRender from '@/components/MarkdownRender';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -968,21 +968,21 @@ function BlogResults() {
     return (
       <div className="mx-auto blog-container animate-fade-in pb-32">
         <div className="prose blog-typography font-round prose-invert max-w-none
-                      prose-p:text-lg prose-p:leading-relaxed
-                      prose-strong:text-white/95 prose-strong:font-semibold
-                      prose-a:text-[#F2EEC8] prose-a:no-underline hover:prose-a:underline
-                      prose-headings:text-[#F2EEC8] prose-headings:font-display
-                      prose-code:text-[#F2EEC8] prose-code:bg-[#F2EEC8]/10 prose-code:px-2 prose-code:py-0.5 prose-code:rounded-md
-                      prose-blockquote:border-l-[#F2EEC8] prose-blockquote:bg-white/5 prose-blockquote:rounded-lg prose-blockquote:py-2
-                      prose-em:text-white/85
-                      selection:bg-[#F2EEC8]/20 
-                      selection:text-white">
-          <Markdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw, rehypeSanitize, rehypePrism]}
-          >
-            {displayBlogContent}
-          </Markdown>
+                    prose-p:text-lg prose-p:leading-relaxed
+                    prose-strong:text-white/95 prose-strong:font-semibold
+                    prose-a:text-[#F2EEC8] prose-a:no-underline hover:prose-a:underline
+                    prose-headings:text-[#F2EEC8] prose-headings:font-display
+                    prose-code:text-[#F2EEC8] prose-code:bg-[#F2EEC8]/10 prose-code:px-2 prose-code:py-0.5 prose-code:rounded-md
+                    prose-blockquote:border-l-[#F2EEC8] prose-blockquote:bg-white/5 prose-blockquote:rounded-lg prose-blockquote:py-2
+                    prose-em:text-white/85
+                    selection:bg-[#F2EEC8]/20 
+                    selection:text-white">
+        <MarkdownRender
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw, rehypeSanitize, rehypePrism]}
+        >
+          {displayBlogContent}
+        </MarkdownRender> 
         </div>
       </div>
     );

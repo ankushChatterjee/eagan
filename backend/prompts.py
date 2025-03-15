@@ -195,6 +195,10 @@ Remember these rules:
 - Consider using markdown tables to present data if needed for comparisons, statistics, etc.
 - Write code or math if the user asks you to or if it is needed to explain the topic. But make sure to use code blocks.
 - If you are using math, use latex.
+  - Here are some special rules for latex:
+    - Use $$$$ to start and end a latex block.
+    - Use $$ to start and end a latex inline block.
+    - MAKE SURE TO FOLLOW THESE LATEX/KATEX RULES STRICTLY.
 - Do not repeat yourself, we need a awesome in detail blog.
 - Always verify the facts with the context before putting it in the blog post.
 - DONT SURROUND THE BLOG POST WITH ANYTHING ELSE. JUST THE BLOG POST. 
@@ -218,7 +222,7 @@ ${context}
 """)
 
 reflect_system_prompt = Template("""
-You are a self-reflecting search agent. You've performed a search on the topic: "${query}".
+You are a self-reflecting search agent. You've performed a search on the topic: ${query}.
 You will be given a search result summary, but you need to reflect on the quality and completeness of this information.
 
 You will be given two things:
