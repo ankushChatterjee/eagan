@@ -8,7 +8,6 @@ from prompts import blog_breakdown_prompt, blog_plan_prompt, blog_write_prompt
 from blog.reflection_search import ReflectionSearch
 import asyncio
 
-
 lite_llm = "groq/qwen-qwq-32b"
 thinking_llm = "groq/deepseek-r1-distill-llama-70b"
 gemini_thinking_llm = "gemini/gemini-2.0-flash-thinking-exp-01-21"
@@ -115,7 +114,7 @@ def convert_search_to_text(results: list = None):
 
 async def search_term(topic: str, term: str) -> tuple[str, str]:
     """Perform search for a single term and return the term and its summary"""
-    search = search_sync(topic, [term])
+    search = await search_sync(term)
     if search.get("status") == "ERROR":
         return term, ""  # Return empty summary on error
     return term, search.get('summary', '')
@@ -146,29 +145,49 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
         terms = initial_breakdown(topic)
         yield f"event: breakdown\ndata: {json.dumps(terms)}\n\n"
 
-        # Step 2: Initial search
+        # Step 2: Initial search - now concurrent
         yield f"event: status\ndata: {json.dumps({'message': 'Performing initial search...'})}\n\n"
-        preliminary_search = await search_sync(topic, terms)
         
-        # Check if search was successful
-        if preliminary_search.get('status') == 'ERROR':
-            yield f"event: error\ndata: {json.dumps({'error': 'Search failed'})}\n\n"
+        # Filter out any "NO_GAPS_FOUND" terms
+        filtered_terms = [term for term in terms if term != "NO_GAPS_FOUND"]
+        
+        # Prepare search tasks for concurrent execution
+        inform_data = [{"message": f"{term}"} for term in filtered_terms]
+        yield f"event: search_start\ndata: {json.dumps(inform_data)}\n\n"
+        
+        # Create search tasks for each term and run them concurrently
+        search_tasks = [search_sync(term) for term in filtered_terms]
+        search_results = await asyncio.gather(*search_tasks)
+        
+        # Combine results from all searches
+        knowledge_base = ""
+        all_search_results = []
+        
+        for term, search in zip(filtered_terms, search_results):
+            if search.get('status') == 'ERROR':
+                yield f"event: warning\ndata: {json.dumps({'message': f'Search failed for term: {term}'})}\n\n"
+                continue
+                
+            knowledge_base += "\n\n" + term + "\n" + search.get('summary', '')
+            all_search_results.extend(search.get('search_results', []))
+        
+        # Check if we have any successful search results
+        if not knowledge_base.strip():
+            yield f"event: error\ndata: {json.dumps({'error': 'All searches failed'})}\n\n"
             return
             
-        knowledge_base = preliminary_search.get('summary', '')
-        preliminary_search_results = preliminary_search.get('search_results', [])
-        yield f"event: search_results\ndata: {json.dumps(preliminary_search_results)}\n\n"
+        yield f"event: search_results\ndata: {json.dumps(all_search_results)}\n\n"
         
         # Step 3: Reflection and additional research
         current_date = datetime.now().isoformat()
         reflection_search = ReflectionSearch(thinking_llm)
-        search_results = convert_search_to_text(preliminary_search_results)
+        search_results_text = convert_search_to_text(all_search_results)
         
         yield f"event: status\ndata: {json.dumps({'message': 'Starting to research and reflect'})}\n\n"
         
         # Initial reflection
         reflection = None
-        async for response in reflection_search.start_reflection(topic, knowledge_base, search_results, current_date):
+        async for response in reflection_search.start_reflection(topic, knowledge_base, search_results_text, current_date):
             if response["type"] == "thinking":
                 yield f"event: thinking_part\ndata: {json.dumps({'thought': response['content']})}\n\n"
             elif response["type"] == "reflection":
@@ -193,7 +212,7 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
                     inform_data = [{"message": f"{term}"} for term in tool['parameters']]
                     yield f"event: search_start\ndata: {json.dumps(inform_data)}\n\n"
                     
-                    search_tasks = [search_sync(topic, [term]) for term in tool['parameters']]
+                    search_tasks = [search_sync(term) for term in tool['parameters']]
                     search_results = await asyncio.gather(*search_tasks)
                     
                     # Process results

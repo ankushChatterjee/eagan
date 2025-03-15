@@ -374,7 +374,7 @@ async def test_search():
     async for part in summarize_search_results(test_query, context, mock_history):
         summary += part
 
-async def search_sync(query: str, terms: list, country: str = "US", chat_history: list = None):
+async def search_sync(query: str, country: str = "US", chat_history: list = None):
     try:
         # Perform web search and get results
         breakdown_terms = breakdown(query, is_follow_up=False, history=None)
