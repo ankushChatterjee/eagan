@@ -194,6 +194,14 @@ Remember these rules:
 - Use markdown features like headings, bold, italic, lists, tables etc. 
 - Consider using markdown tables to present data if needed for comparisons, statistics, etc.
 - Write code or math if the user asks you to or if it is needed to explain the topic. But make sure to use code blocks.
+  - Here are some special rules for code blocks:
+    - Mention the language of the code block in the code block.
+      Eg: ```python
+      print("Hello, world!")
+      ```
+      Eg: ```javascript
+      console.log("Hello, world!");
+      ```
 - If you are using math, use latex.
   - Here are some special rules for latex:
     - Use $$$$ to start and end a latex block.
