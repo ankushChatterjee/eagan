@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, BookOpenIcon, SearchIcon, ExternalLinkIcon, AlertTriangleIcon } from "lucide-react";
+import { Loader2, BookOpenIcon, SearchIcon, AlertTriangleIcon, Menu, ChevronUp, Clock, BookMarked, FileText, ChevronRight, Bookmark, List, ListFilter, Share2, Eye } from "lucide-react";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import MarkdownRender from '@/components/MarkdownRender';
 import remarkGfm from 'remark-gfm';
@@ -344,6 +344,98 @@ const customStyles = `
     50% { transform: translateX(8px); }
     100% { transform: translateX(0); }
   }
+
+  .reading-progress-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, rgba(242, 238, 200, 0.8), rgba(242, 238, 200, 0.4));
+    z-index: 60;
+    transition: width 0.3s ease-out;
+  }
+
+  .toc-section-active {
+    color: rgba(242, 238, 200, 1) !important;
+    font-weight: 500;
+    transform: translateX(4px);
+  }
+
+  .toc-section-indicator {
+    position: absolute;
+    left: 0;
+    width: 3px;
+    background: rgba(242, 238, 200, 0.6);
+    border-radius: 0 3px 3px 0;
+    transition: all 0.3s ease;
+  }
+
+  .toc-pill {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+  }
+
+  .toc-pill:hover {
+    background: rgba(242, 238, 200, 0.08);
+  }
+
+  .toc-pill.active {
+    background: rgba(242, 238, 200, 0.1);
+    color: rgba(242, 238, 200, 1);
+    font-weight: 500;
+  }
+
+  .reading-position-bar {
+    position: fixed;
+    top: 30%;
+    right: 16px;
+    width: 5px;
+    height: 40%;
+    background: rgba(242, 238, 200, 0.1);
+    border-radius: 3px;
+    z-index: 40;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .reading-position-bar.visible {
+    opacity: 1;
+  }
+  
+  .reading-position-indicator {
+    position: absolute;
+    width: 100%;
+    background: rgba(242, 238, 200, 0.6);
+    border-radius: 3px;
+    transition: top 0.3s ease-out;
+  }
+  
+  .focus-mode {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 30;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+  }
+  
+  .focus-paragraph {
+    position: relative;
+    z-index: 31 !important;
+    transition: all 0.6s ease-out !important;
+  }
+  
+  .focus-gradient {
+    position: absolute;
+    inset: -100px;
+    background: radial-gradient(ellipse at center, rgba(30, 31, 28, 0) 0%, rgba(0, 0, 0, 0.65) 70%);
+    z-index: 30;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    transition: opacity 0.6s ease;
+  }
 `;
 
 // Types for the blog generation state
@@ -374,6 +466,13 @@ function BlogResults() {
   const topic = searchParams.get('topic');
   
   const thinkingRef = useRef<HTMLDivElement>(null);
+  const blogContentRef = useRef<HTMLDivElement>(null);
+
+  // Reading progress state
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [estimatedReadTime, setEstimatedReadTime] = useState(0);
+  const [showTableOfContents, setShowTableOfContents] = useState(false);
+  const [headings, setHeadings] = useState<{id: string, text: string, level: number}[]>([]);
 
   // State for streaming blog generation
   const [blogState, setBlogState] = useState<BlogGenerationState>({
@@ -418,6 +517,17 @@ function BlogResults() {
   const [newTerms, setNewTerms] = useState<Set<string>>(new Set());
   // Track when to trigger the slide animation for existing terms
   const [shouldSlideExisting, setShouldSlideExisting] = useState(false);
+
+  // Current section state for TOC
+  const [currentSection, setCurrentSection] = useState<string | null>(null);
+  // Track scroll direction
+  const [scrollDirection, setScrollDirection] = useState<'up' | 'down'>('down');
+  const lastScrollY = useRef(0);
+  // Track reading position bar visibility
+  const [showReadingBar, setShowReadingBar] = useState(false);
+  // Focus mode state
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusParagraph, setFocusParagraph] = useState<HTMLElement | null>(null);
 
   // Auto-scroll thinking container when new content is added
   useEffect(() => {
@@ -529,6 +639,197 @@ function BlogResults() {
         behavior: 'smooth'
       });
     }
+  };
+
+  // Track reading progress on scroll
+  useEffect(() => {
+    if (!blogState.blogContent.length) return;
+
+    let scrollTimer: NodeJS.Timeout;
+    let paragraphObserver: IntersectionObserver | null = null;
+
+    const calculateReadingProgress = () => {
+      if (!blogContentRef.current) return;
+      
+      const contentHeight = blogContentRef.current.scrollHeight;
+      const currentPosition = window.scrollY;
+      const viewportHeight = window.innerHeight;
+      const documentHeight = Math.max(
+        contentHeight,
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      );
+      
+      // Calculate how far down the page the user has scrolled
+      const scrolled = currentPosition / (documentHeight - viewportHeight) * 100;
+      setReadingProgress(Math.min(scrolled, 100));
+
+      // Determine scroll direction
+      if (currentPosition > lastScrollY.current) {
+        setScrollDirection('down');
+      } else if (currentPosition < lastScrollY.current) {
+        setScrollDirection('up');
+      }
+      lastScrollY.current = currentPosition;
+
+      // Show reading position bar while actively scrolling
+      setShowReadingBar(true);
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        setShowReadingBar(false);
+      }, 2000);
+    };
+
+    // Calculate estimated reading time based on word count (average reading speed: 250 words/minute)
+    const calculateReadingTime = () => {
+      if (!blogState.blogContent.length && !blogState.completeBlog) return;
+      
+      const content = blogState.completeBlog 
+        ? blogState.completeBlog.blog_content 
+        : blogState.blogContent.join('');
+      
+      const wordCount = content.trim().split(/\s+/).length;
+      const readingTime = Math.ceil(wordCount / 250);
+      setEstimatedReadTime(readingTime);
+    };
+
+    // Extract headings for table of contents and detect current section
+    const extractHeadings = () => {
+      if (!blogContentRef.current) return;
+      
+      const headingElements = blogContentRef.current.querySelectorAll('h1, h2, h3');
+      const headingsData = Array.from(headingElements).map(heading => {
+        // Create IDs for headings if they don't exist
+        if (!heading.id) {
+          heading.id = heading.textContent?.toLowerCase().replace(/\s+/g, '-') || '';
+        }
+        
+        return {
+          id: heading.id,
+          text: heading.textContent || '',
+          level: parseInt(heading.tagName.charAt(1)),
+          element: heading as HTMLElement,
+        };
+      });
+      
+      setHeadings(headingsData);
+
+      // Set up intersection observer for headings to track current section
+      const options = {
+        rootMargin: '-100px 0px -80% 0px',
+        threshold: 0
+      };
+
+      const callback: IntersectionObserverCallback = (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            setCurrentSection(entry.target.id);
+          }
+        });
+      };
+
+      const observer = new IntersectionObserver(callback, options);
+      headingElements.forEach(heading => observer.observe(heading));
+
+      // Setup observer for paragraphs when focus mode is active
+      if (focusMode && blogContentRef.current) {
+        // Select all content elements, not just paragraphs
+        const contentElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
+        
+        // Clear any existing focus-paragraph classes
+        contentElements.forEach(p => {
+          p.classList.remove('focus-paragraph');
+        });
+        
+        const paragraphCallback: IntersectionObserverCallback = (entries) => {
+          entries.forEach(entry => {
+            const element = entry.target as HTMLElement;
+            
+            if (entry.isIntersecting && entry.intersectionRatio > 0.7) {
+              // Add class to the focused paragraph with a smoother transition
+              setTimeout(() => {
+                element.classList.add('focus-paragraph');
+                setFocusParagraph(element);
+              }, 50);
+            }
+          });
+        };
+
+        paragraphObserver = new IntersectionObserver(paragraphCallback, {
+          rootMargin: '-40% 0px -40% 0px',
+          threshold: [0.6, 0.7, 0.8]
+        });
+        
+        // Using the observer after creation - guard against null
+        contentElements.forEach(p => {
+          if (paragraphObserver) {
+            paragraphObserver.observe(p);
+          }
+        });
+      } else if (!focusMode && blogContentRef.current) {
+        // Explicitly clean up when focus mode is off
+        const allElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
+        allElements.forEach(p => p.classList.remove('focus-paragraph'));
+        setFocusParagraph(null);
+      }
+
+      return () => {
+        observer.disconnect();
+        if (paragraphObserver) paragraphObserver.disconnect();
+      };
+    };
+
+    // Calculate reading time once content is loaded
+    calculateReadingTime();
+    
+    // Extract headings for table of contents with a delay to ensure content is rendered
+    const headingsTimer = setTimeout(extractHeadings, 1000);
+    
+    // Add scroll event listener for reading progress
+    window.addEventListener('scroll', calculateReadingProgress);
+    calculateReadingProgress(); // Initial calculation
+    
+    return () => {
+      window.removeEventListener('scroll', calculateReadingProgress);
+      clearTimeout(scrollTimer);
+      clearTimeout(headingsTimer);
+      
+      // Clean up focus paragraph classes
+      if (blogContentRef.current) {
+        const paragraphs = blogContentRef.current.querySelectorAll('p');
+        paragraphs.forEach(p => p.classList.remove('focus-paragraph'));
+      }
+    };
+  }, [blogState.blogContent, blogState.completeBlog, focusMode]);
+
+  // Toggle table of contents visibility
+  const toggleTableOfContents = () => {
+    setShowTableOfContents(prev => !prev);
+  };
+
+  // Scroll to heading when clicking on table of contents item
+  const scrollToHeading = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      window.scrollTo({
+        top: element.offsetTop - 100, // Adjust for any fixed headers
+        behavior: 'smooth'
+      });
+      setShowTableOfContents(false);
+    }
+  };
+
+  // Toggle focus mode
+  const toggleFocusMode = () => {
+    setFocusMode(prev => {
+      // When turning off focus mode, remove focus-paragraph class from all elements
+      if (prev && blogContentRef.current) {
+        const allElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
+        allElements.forEach(p => p.classList.remove('focus-paragraph'));
+        setFocusParagraph(null);
+      }
+      return !prev;
+    });
   };
 
   // Fetch blog generation stream and handle events
@@ -667,8 +968,6 @@ function BlogResults() {
       searchTerms, 
       scrapeActivity, 
       thinkingContent, 
-      reflectionProgress,
-      status
     } = blogState;
 
     // Create placeholder items for consistent layout
@@ -966,27 +1265,204 @@ function BlogResults() {
       : blogState.blogContent.join('');
 
     return (
-      <div className="mx-auto blog-container animate-fade-in pb-32">
-        <div className="prose blog-typography font-round prose-invert max-w-none
-                    prose-p:text-lg prose-p:leading-relaxed
-                    prose-strong:text-white/95 prose-strong:font-semibold
-                    prose-a:text-[#F2EEC8] prose-a:no-underline hover:prose-a:underline
-                    prose-headings:text-[#F2EEC8] prose-headings:font-display
-                    prose-code:text-[#F2EEC8] prose-code:bg-[#F2EEC8]/10 prose-code:px-2 prose-code:py-0.5 prose-code:rounded-md
-                    prose-blockquote:border-l-[#F2EEC8] prose-blockquote:bg-white/5 prose-blockquote:rounded-lg prose-blockquote:py-2
-                    prose-em:text-white/85
-                    selection:bg-[#F2EEC8]/20 
-                    selection:text-white">
-        <MarkdownRender
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw, rehypeSanitize, rehypePrism]}
+      <div className="mx-auto blog-container animate-fade-in pb-32" ref={blogContentRef}>
+        {/* Top reading progress indicator */}
+        <div 
+          className="reading-progress-indicator" 
+          style={{ width: `${readingProgress}%` }}
+        ></div>
+
+        {/* Focus mode overlay - with improved subtle styling */}
+        {focusMode && (
+          <div 
+            className="focus-mode" 
+            style={{ 
+              opacity: focusParagraph ? 0.65 : 0,
+              transition: 'opacity 0.8s ease'
+            }}
+          />
+        )}
+
+        {/* Reading position bar - visible while scrolling */}
+        <div className={cn("reading-position-bar", showReadingBar && "visible")}>
+          <div 
+            className="reading-position-indicator" 
+            style={{ 
+              top: `${readingProgress}%`,
+              height: '40px'
+            }}
+          ></div>
+        </div>
+
+        {/* Table of Contents Overlay - Only visible when toggled */}
+        {showTableOfContents && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTableOfContents(false)}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowTableOfContents(false)}></div>
+            <div 
+              className="glass-effect rounded-xl max-w-md w-full z-10 overflow-hidden animate-float-in"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxHeight: "70vh" }}
+            >
+              <div className="noise-texture opacity-5"></div>
+              <div className="p-4 border-b border-[#F2EEC8]/10 flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#F2EEC8]/90" />
+                  <h3 className="text-base font-medium text-[#F2EEC8]/90">Contents</h3>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-[#F2EEC8]/70 hover:text-[#F2EEC8] hover:bg-[#F2EEC8]/10 h-8 w-8 p-0"
+                  onClick={() => setShowTableOfContents(false)}
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="p-4 overflow-y-auto hide-scrollbar relative z-10" style={{ maxHeight: "calc(70vh - 120px)" }}>
+                {headings.length > 0 ? (
+                  <ul className="space-y-1 relative">
+                    {headings.map((heading, index) => (
+                      <li 
+                        key={index}
+                        className={cn(
+                          "toc-pill py-1.5 px-3 transition-all duration-200 relative cursor-pointer",
+                          heading.id === currentSection ? "active" : "",
+                          heading.level === 1 ? "my-1" : "",
+                          heading.level === 2 ? "pl-7" : "",
+                          heading.level === 3 ? "pl-10" : ""
+                        )}
+                        onClick={() => scrollToHeading(heading.id)}
+                      >
+                        <div className="flex items-center">
+                          {heading.level === 1 && (
+                            <Bookmark className="w-3.5 h-3.5 mr-2 flex-shrink-0 text-[#F2EEC8]/60" />
+                          )}
+                          {heading.level === 2 && (
+                            <ChevronRight className="w-3 h-3 mr-1.5 flex-shrink-0 text-[#F2EEC8]/50" />
+                          )}
+                          <span 
+                            className={cn(
+                              "transition-colors duration-200 text-sm",
+                              heading.level === 1 ? "text-[#F2EEC8]/90" : "",
+                              heading.level === 2 ? "text-[#F2EEC8]/80" : "",
+                              heading.level === 3 ? "text-[#F2EEC8]/70 text-xs" : "",
+                              heading.id === currentSection ? "text-[#F2EEC8]" : ""
+                            )}
+                          >
+                            {heading.text}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-center py-5 text-[#F2EEC8]/60 flex flex-col items-center gap-3">
+                    <List className="w-10 h-10 text-[#F2EEC8]/30" />
+                    <p className="text-sm">No headers found in content</p>
+                  </div>
+                )}
+              </div>
+              <div className="p-3 border-t border-[#F2EEC8]/10 bg-[#1A1B18]/50 relative z-10">
+                <div className="text-xs text-[#F2EEC8]/50 text-center">
+                  Click any heading to navigate to that section
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div 
+          className={cn(
+            "prose blog-typography font-round prose-invert max-w-none",
+            "prose-p:text-lg prose-p:leading-relaxed",
+            "prose-strong:text-white/95 prose-strong:font-semibold",
+            "prose-a:text-[#F2EEC8] prose-a:no-underline hover:prose-a:underline",
+            "prose-headings:text-[#F2EEC8] prose-headings:font-display",
+            "prose-code:text-[#F2EEC8] prose-code:bg-[#F2EEC8]/10 prose-code:px-2 prose-code:py-0.5 prose-code:rounded-md",
+            "prose-blockquote:border-l-[#F2EEC8] prose-blockquote:bg-white/5 prose-blockquote:rounded-lg prose-blockquote:py-2",
+            "prose-em:text-white/85",
+            "selection:bg-[#F2EEC8]/20",
+            "selection:text-white",
+            focusMode && "focus-reading-mode"
+          )}
         >
-          {displayBlogContent}
-        </MarkdownRender> 
+          <MarkdownRender
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeRaw, rehypeSanitize, rehypePrism]}
+          >
+            {displayBlogContent}
+          </MarkdownRender> 
         </div>
       </div>
     );
   };
+
+  // Load and apply styles for focus mode via useEffect to ensure proper DOM manipulation
+  useEffect(() => {
+    // Only run this effect when focusMode changes or when the content is available
+    if (!blogContentRef.current || !blogState.blogContent.length) return;
+    
+    // Get all content elements, not just paragraphs
+    const contentElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
+    
+    if (focusMode) {
+      // Add subtle visual enhancement to paragraphs during focus mode
+      contentElements.forEach(p => {
+        const element = p as HTMLElement;
+        element.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        element.style.opacity = '0.6';
+        element.style.position = 'relative';
+      });
+      
+      // Set styles for the currently focused paragraph (if any)
+      if (focusParagraph) {
+        focusParagraph.style.opacity = '1';
+        focusParagraph.style.transform = 'scale(1.005)';
+        focusParagraph.style.textShadow = '0 0 1px rgba(255, 255, 255, 0.1)';
+      }
+    } else {
+      // Reset all element styles when focus mode is off
+      contentElements.forEach(p => {
+        const element = p as HTMLElement;
+        element.style.opacity = '1';
+        element.style.transform = 'none';
+        element.style.textShadow = 'none';
+        element.style.transition = 'none';
+        element.style.position = 'static';
+      });
+    }
+    
+    // Cleanup function
+    return () => {
+      contentElements.forEach(p => {
+        const element = p as HTMLElement;
+        element.style.opacity = '1';
+        element.style.transform = 'none';
+        element.style.textShadow = 'none';
+        element.style.transition = 'none';
+        element.style.position = 'static';
+      });
+    };
+  }, [focusMode, focusParagraph, blogState.blogContent]);
+
+  // Additional cleanup effect for focus mode on component unmount
+  useEffect(() => {
+    return () => {
+      // Make sure to reset all styling when component unmounts
+      if (blogContentRef.current) {
+        const allElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
+        allElements.forEach(el => {
+          const element = el as HTMLElement;
+          element.classList.remove('focus-paragraph');
+          element.style.opacity = '1';
+          element.style.transform = 'none';
+          element.style.textShadow = 'none';
+          element.style.transition = 'none';
+          element.style.position = 'static';
+        });
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#1E1F1C] text-white relative overflow-x-hidden">
@@ -1025,7 +1501,7 @@ function BlogResults() {
         {blogState.blogContent.length > 0 && (
           <>
             <div className="pb-8 mb-12 border-b border-[#F2EEC8]/10">
-              <div className="flex items-center gap-4 text-[#F2EEC8]/70 text-sm animate-fade-in-up">
+              <div className="flex items-center gap-4 text-[#F2EEC8]/70 text-sm animate-fade-in-up flex-wrap">
                 <BookOpenIcon className="w-5 h-5" />
                 <span className="font-medium">Generated blog based on comprehensive research</span>
                 <span className="text-[#F2EEC8]/30">•</span>
@@ -1034,6 +1510,13 @@ function BlogResults() {
                   month: 'long', 
                   day: 'numeric' 
                 })}</span>
+                
+                {/* Estimated read time added near the top */}
+                <span className="text-[#F2EEC8]/30">•</span>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-[#F2EEC8]/70" />
+                  <span>{estimatedReadTime} min read</span>
+                </div>
               </div>
             </div>
 
@@ -1061,20 +1544,49 @@ function BlogResults() {
                   </h2>
                 </div>
                 <div className="h-6 w-px bg-[#F2EEC8]/10"></div>
-                <div className="flex items-center gap-4 text-white/60">
-                  <div className="flex items-center gap-2">
-                    <BookOpenIcon className="w-4 h-4" />
-                    <span className="text-sm">Blog</span>
-                  </div>
-                  <span className="text-white/20">•</span>
-                  <span className="text-sm">{new Date().toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</span>
+                
+                {/* Read time remaining */}
+                <div className="flex items-center gap-2 text-[#F2EEC8]/70">
+                  <Clock className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm whitespace-nowrap">
+                    {Math.ceil(estimatedReadTime * (1 - readingProgress / 100))} min left
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              
+              <div className="flex items-center gap-3">
+                {/* Focus mode toggle - updated for better visual feedback */}
+                <Button
+                  onClick={toggleFocusMode}
+                  className={cn(
+                    "bg-white/5 hover:bg-white/10 text-white/80 hover:text-white",
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
+                    "border border-white/10 hover:border-white/20 relative overflow-hidden group",
+                    focusMode ? "bg-[#F2EEC8]/10 border-[#F2EEC8]/20 text-[#F2EEC8]" : ""
+                  )}
+                >
+                  <div className="noise-texture opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                  <div className="flex items-center gap-2 relative z-10">
+                    <Eye className="w-4 h-4" />
+                    <span>{focusMode ? "Reading" : "Focus"}</span>
+                  </div>
+                </Button>
+
+                {/* Table of Contents toggle */}
+                <Button
+                  onClick={toggleTableOfContents}
+                  className="bg-white/5 hover:bg-white/10 text-white/80 hover:text-white
+                           px-4 py-2 rounded-full text-sm font-medium transition-all duration-300
+                           border border-white/10 hover:border-white/20 relative overflow-hidden group"
+                >
+                  <div className="noise-texture opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                  <div className="flex items-center gap-2 relative z-10">
+                    <ListFilter className="w-4 h-4" />
+                    <span>Contents</span>
+                  </div>
+                </Button>
+                
+                {/* Back to top button */}
                 <Button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   className="bg-white/5 hover:bg-white/10 text-white/80 hover:text-white
@@ -1082,7 +1594,10 @@ function BlogResults() {
                            border border-white/10 hover:border-white/20 relative overflow-hidden group"
                 >
                   <div className="noise-texture opacity-10 group-hover:opacity-20 transition-opacity"></div>
-                  <span className="relative z-10">Back to top</span>
+                  <div className="flex items-center gap-2 relative z-10">
+                    <ChevronUp className="w-4 h-4" />
+                    <span>Top</span>
+                  </div>
                 </Button>
               </div>
             </div>
