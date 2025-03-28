@@ -12,7 +12,7 @@ lite_llm = "groq/qwen-qwq-32b"
 thinking_llm = "groq/deepseek-r1-distill-llama-70b"
 gemini_thinking_llm = "gemini/gemini-2.0-flash-thinking-exp-01-21"
 
-SEARCH_ITERATIONS = 2
+SEARCH_ITERATIONS = 3
 
 def process_llm_response(response_text: str) -> str:
     """Process LLM response to extract and print think tags, then return cleaned response"""
@@ -134,19 +134,60 @@ async def search_terms(topic: str, terms: list[str]) -> str:
     # Combine results maintaining order
     return "\n\n".join([f"{term}\n{summary}" for term, summary in results])
 
-async def stream_blog_generation(topic: str = None, user_id: str = None, country: str = "US"):
-    if topic is None:
-        yield f"event: error\ndata: {json.dumps({'error': 'No topic provided'})}\n\n"
+async def stream_blog_generation(blog_id: str = None, user_id: str = None, country: str = "US"):
+    if blog_id is None:
+        yield f"event: error\ndata: {json.dumps({'error': 'No blog_id provided'})}\n\n"
         return
 
+    from db import db
+    
     try:
+        # Check if a pending blog exists
+        pending_blog = db.get_pending_blog_by_id(blog_id)
+        
+        if pending_blog:
+            # Use the topic from the pending blog
+            topic = pending_blog['blog_topic']
+            
+            # Update the blog status to GENERATING
+            db.update_blog_status(blog_id, "GENERATING")
+            
+        else:
+            # If no pending blog, check if completed blog exists
+            blog = db.get_blog_details(blog_id)
+            
+            if blog:
+                if blog['status'] == "BLOG_DONE":
+                    # Return the completed blog content
+                    yield f"event: complete\ndata: {json.dumps({
+                        'topic': blog['blog_topic'],
+                        'blog_content': blog['blog_content'],
+                        'status': 'BLOG_DONE'
+                    })}\n\n"
+                    return
+                else:
+                    # Blog exists but is not completed, return current status
+                    yield f"event: in_progress\ndata: {json.dumps({
+                        'topic': blog['blog_topic'],
+                        'status': blog['status'],
+                        'blog_content': blog.get('blog_content', '')
+                    })}\n\n"
+                    return
+            else:
+                # Neither pending nor completed blog exists
+                yield f"event: error\ndata: {json.dumps({'error': 'Blog not found'})}\n\n"
+                return
+
         # Step 1: Initial breakdown
         yield f"event: status\ndata: {json.dumps({'message': 'Breaking down topic into search terms...'})}\n\n"
+        db.update_generation_state(blog_id, "breakdown", 0, False, "status", {'message': 'Breaking down topic into search terms...'})
         terms = initial_breakdown(topic)
+        db.update_generation_state(blog_id, "breakdown", 0, False, "breakdown", terms)
         yield f"event: breakdown\ndata: {json.dumps(terms)}\n\n"
-
+        
         # Step 2: Initial search - now concurrent
         yield f"event: status\ndata: {json.dumps({'message': 'Performing initial search...'})}\n\n"
+        db.update_generation_state(blog_id, "search", 0, False, "status", {'message': 'Performing initial search...'})
         
         # Filter out any "NO_GAPS_FOUND" terms
         filtered_terms = [term for term in terms if term != "NO_GAPS_FOUND"]
@@ -154,6 +195,7 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
         # Prepare search tasks for concurrent execution
         inform_data = [{"message": f"{term}"} for term in filtered_terms]
         yield f"event: search_start\ndata: {json.dumps(inform_data)}\n\n"
+        db.update_generation_state(blog_id, "search", 0, False, "search_start", inform_data)
         
         # Create search tasks for each term and run them concurrently
         search_tasks = [search_sync(term) for term in filtered_terms]
@@ -166,6 +208,7 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
         for term, search in zip(filtered_terms, search_results):
             if search.get('status') == 'ERROR':
                 yield f"event: warning\ndata: {json.dumps({'message': f'Search failed for term: {term}'})}\n\n"
+                db.update_generation_state(blog_id, "search", 0, False, "warning", {'message': f'Search failed for term: {term}'})
                 continue
                 
             knowledge_base += "\n\n" + term + "\n" + search.get('summary', '')
@@ -174,9 +217,13 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
         # Check if we have any successful search results
         if not knowledge_base.strip():
             yield f"event: error\ndata: {json.dumps({'error': 'All searches failed'})}\n\n"
+            db.update_blog_status(blog_id, "ERROR")
+            db.update_generation_state(blog_id, "search", 0, True, "error", {'error': 'All searches failed'})
+            db.delete_pending_blog(blog_id)
             return
             
         yield f"event: search_results\ndata: {json.dumps(all_search_results)}\n\n"
+        db.update_generation_state(blog_id, "search", 0, False, "search_results", {'count': len(all_search_results)})
         
         # Step 3: Reflection and additional research
         current_date = datetime.now().isoformat()
@@ -184,19 +231,27 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
         search_results_text = convert_search_to_text(all_search_results)
         
         yield f"event: status\ndata: {json.dumps({'message': 'Starting to research and reflect'})}\n\n"
+        db.update_generation_state(blog_id, "reflection", 0, False, "status", {'message': 'Starting to research and reflect'})
         
         # Initial reflection
         reflection = None
         async for response in reflection_search.start_reflection(topic, knowledge_base, search_results_text, current_date):
             if response["type"] == "thinking":
                 yield f"event: thinking_part\ndata: {json.dumps({'thought': response['content']})}\n\n"
+                db.update_generation_state(blog_id, "reflection", 0, False, "thinking_part", {'thought': response['content'][:500]})
             elif response["type"] == "reflection":
                 reflection = response["content"]
             elif response["type"] == "error":
                 yield f"event: error\ndata: {json.dumps({'error': response['content']})}\n\n"
+                db.update_blog_status(blog_id, "ERROR")
+                db.update_generation_state(blog_id, "reflection", 0, True, "error", {'error': response['content']})
+                db.delete_pending_blog(blog_id)
                 return
+                
         yield f"event: status\ndata: {json.dumps({'message': 'Prelimnary research completed, moving ahead'})}\n\n"
-        # Perform up to 4 iterations of research
+        db.update_generation_state(blog_id, "reflection", 0, False, "status", {'message': 'Prelimnary research completed, moving ahead'})
+        
+        # Perform up to SEARCH_ITERATIONS iterations of research
         for i in range(SEARCH_ITERATIONS):
             if not reflection:
                 break
@@ -209,8 +264,11 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
                 if tool['tool'] == "web_search":
                     # Prepare all search tasks
                     yield f"event: status\ndata: {json.dumps({'message': 'Searching the web for more information'})}\n\n"
+                    db.update_generation_state(blog_id, "reflection", i+1, False, "status", {'message': 'Searching the web for more information'})
+                    
                     inform_data = [{"message": f"{term}"} for term in tool['parameters']]
                     yield f"event: search_start\ndata: {json.dumps(inform_data)}\n\n"
+                    db.update_generation_state(blog_id, "reflection", i+1, False, "search_start", inform_data)
                     
                     search_tasks = [search_sync(term) for term in tool['parameters']]
                     search_results = await asyncio.gather(*search_tasks)
@@ -220,14 +278,19 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
                         response_summary += "\n\n" + term + "\n" + search['summary']
                         response_search_results += convert_search_to_text(search['search_results'])
                         yield f"event: search_results\ndata: {json.dumps(len(search['search_results']))}\n\n"
+                        db.update_generation_state(blog_id, "reflection", i+1, False, "search_results", {'count': len(search['search_results'])})
                 
                 if tool['tool'] == "scrape":
                     yield f"event: status\ndata: {json.dumps({'message': 'Reading web pages'})}\n\n"
+                    db.update_generation_state(blog_id, "reflection", i+1, False, "status", {'message': 'Reading web pages'})
+                    
                     sub_topic = tool['parameters'][0]
                     scrape_links = tool['parameters'][1:]
                     # Scrape all links concurrently
                     inform_data = [{"message": f"{link}"} for link in scrape_links]
                     yield f"event: scrape_start\ndata: {json.dumps(inform_data)}\n\n"
+                    db.update_generation_state(blog_id, "reflection", i+1, False, "scrape_start", inform_data)
+                    
                     scrape_tasks = [scrape_url(link, sub_topic) for link in scrape_links]
                     scrape_results = await asyncio.gather(*scrape_tasks)
                     
@@ -236,7 +299,8 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
                         if scrape['success']:
                             response_summary += "\n\n" + sub_topic + "\n" + scrape['summary']
                         else:
-                            yield f"event: warning\ndata: {json.dumps({'message': f'Failed to scrape {link}: {scrape["error"]}'})}\n\n"
+                            yield f"event: warning\ndata: {json.dumps({'message': f'Failed to scrape {link}: {scrape.get('error', 'Unknown error')}'})}\n\n"
+                            db.update_generation_state(blog_id, "reflection", i+1, False, "warning", {'message': f'Failed to scrape {link}'})
 
             # Send research results back for reflection
             reflection_input = f"""
@@ -253,27 +317,41 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
             async for response in reflection_search.send(reflection_input):
                 if response["type"] == "thinking":
                     yield f"event: thinking_part\ndata: {json.dumps({'thought': response['content']})}\n\n"
+                    db.update_generation_state(blog_id, "reflection", i+1, False, "thinking_part", {'thought': response['content'][:500]})
                 elif response["type"] == "reflection":
                     reflection = response["content"]
                 elif response["type"] == "error":
                     yield f"event: error\ndata: {json.dumps({'error': response['content']})}\n\n"
-                    break
+                    db.update_blog_status(blog_id, "ERROR")
+                    db.update_generation_state(blog_id, "reflection", i+1, True, "error", {'error': response['content']})
+                    db.delete_pending_blog(blog_id)
+                    return
                 
             knowledge_base += "\n\n" + response_summary
-            yield f"event: reflection_progress\ndata: {json.dumps({'iteration': i+1, 'max_iterations': 4})}\n\n"
+            yield f"event: reflection_progress\ndata: {json.dumps({'iteration': i+1, 'max_iterations': SEARCH_ITERATIONS})}\n\n"
+            db.update_generation_state(blog_id, "reflection", i+1, False, "reflection_progress", {'iteration': i+1, 'max_iterations': SEARCH_ITERATIONS})
 
         # Step 4: Generate blog plan
         yield f"event: status\ndata: {json.dumps({'message': 'Planning blog'})}\n\n"
+        db.update_generation_state(blog_id, "planning", 0, False, "status", {'message': 'Planning blog'})
         blog_plan = process_llm_response(plan_blog(topic, knowledge_base))
+        db.update_generation_state(blog_id, "planning", 0, False, "plan", {'plan': blog_plan})
 
         # Step 5: Write blog content with streaming
         yield f"event: blog_start\ndata: {json.dumps({'message': 'Writing blog content...'})}\n\n"
+        db.update_generation_state(blog_id, "writing", 0, False, "blog_start", {'message': 'Writing blog content...'})
         
         # Accumulate blog content while streaming
         full_blog_content = ""
         for blog_part in write_blog(topic, knowledge_base, blog_plan):
             full_blog_content += blog_part
             yield f"event: blog_part\ndata: {json.dumps({'content': blog_part})}\n\n"
+            # We don't update the generation state for each blog_part to avoid database overload
+        
+        # Update the blog status to BLOG_DONE
+        db.update_blog_status(blog_id, "BLOG_DONE", full_blog_content)
+        db.update_generation_state(blog_id, "complete", 0, True, "complete", {})
+        db.delete_pending_blog(blog_id)
         
         complete_data = {
             "topic": topic,
@@ -284,12 +362,19 @@ async def stream_blog_generation(topic: str = None, user_id: str = None, country
         yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
         
     except Exception as e:
+        db.update_blog_status(blog_id, "ERROR")
+        db.update_generation_state(blog_id, "error", 0, True, "error", {'error': str(e)})
+        db.delete_pending_blog(blog_id)
         yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
 
 if __name__ == "__main__":
     async def main():
-        topic = "Greatness of Virat Kohli"
-        async for event in stream_blog_generation(topic):
+        import sys
+        if len(sys.argv) < 2:
+            print("Usage: python blogger.py <blog_id>")
+            sys.exit(1)
+        blog_id = sys.argv[1]
+        async for event in stream_blog_generation(blog_id):
             print(event)
     # Run the async main function
     asyncio.run(main())

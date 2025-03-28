@@ -248,6 +248,287 @@ class Database:
             """, (chat_id,))
             return cur.fetchone()
 
+    def create_blog_session(self, user_id: str, blog_topic: str) -> dict:
+        """Create a new blog session and return its details"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                INSERT INTO blog_sessions (user_id, blog_topic)
+                VALUES (%s, %s)
+                RETURNING blog_id, user_id, blog_topic, status, created_at
+            """, (user_id, blog_topic))
+            session = cur.fetchone()
+            self.create_pending_blog(session['blog_id'], blog_topic)
+            return session
+
+    def update_blog_status(self, blog_id: str, status: str, blog_content: str = None) -> dict:
+        """Update blog session status and content"""
+        with self.get_cursor() as cur:
+            if blog_content:
+                cur.execute("""
+                    UPDATE blog_sessions
+                    SET status = %s, blog_content = %s
+                    WHERE blog_id = %s
+                    RETURNING blog_id, status, blog_content, updated_at
+                """, (status, blog_content, blog_id))
+            else:
+                cur.execute("""
+                    UPDATE blog_sessions
+                    SET status = %s
+                    WHERE blog_id = %s
+                    RETURNING blog_id, status, updated_at
+                """, (status, blog_id))
+            return cur.fetchone()
+
+    def add_blog_search_terms(self, blog_id: str, search_terms: List[str]) -> List[dict]:
+        """Add multiple search terms for a blog session"""
+        with self.get_cursor() as cur:
+            values = [(blog_id, term) for term in search_terms]
+            execute_values(cur, """
+                INSERT INTO blog_search_terms (blog_id, search_term)
+                VALUES %s
+                RETURNING term_id, search_term, created_at
+            """, values)
+            return cur.fetchall()
+
+    def store_blog_search_results(self, blog_id: str, results: List[Dict[str, Any]], term_id: str = None) -> List[str]:
+        """Store search results for blog search terms
+        
+        If term_id is None, assumes each result in results contains its own term_id
+        Otherwise, assigns the same term_id to all results
+        """
+        result_ids = []
+        with self.get_cursor() as cur:
+            if term_id is not None:
+                # Original functionality - all results belong to the same term
+                values = [(
+                    blog_id,
+                    term_id,
+                    result['title'],
+                    result['url'],
+                    result.get('description'),
+                    result.get('page_age'),
+                    result.get('summary', '')
+                ) for result in results]
+            else:
+                # Batch processing - each result has its own term_id
+                values = [(
+                    blog_id,
+                    result['term_id'],
+                    result['title'],
+                    result['url'],
+                    result.get('description'),
+                    result.get('page_age'),
+                    result.get('summary', '')
+                ) for result in results]
+            
+            execute_values(cur, """
+                INSERT INTO blog_search_results 
+                (blog_id, term_id, title, url, description, page_age, summary)
+                VALUES %s
+                RETURNING result_id
+            """, values)
+            
+            result_ids = [row['result_id'] for row in cur.fetchall()]
+        return result_ids
+
+    def update_generation_state(self, blog_id: str, stage: str, iteration: int = 0,
+                              is_completed: bool = False, event_type: str = None,
+                              event_data: dict = None) -> dict:
+        """Update or create blog generation state"""
+        with self.get_cursor() as cur:
+            # First check if a state exists for this blog_id
+            cur.execute("""
+                SELECT state_id FROM blog_generation_state
+                WHERE blog_id = %s
+            """, (blog_id,))
+            
+            state_exists = cur.fetchone()
+            
+            if state_exists:
+                # Update existing record
+                cur.execute("""
+                    UPDATE blog_generation_state
+                    SET current_stage = %s,
+                        iteration = %s,
+                        is_completed = %s,
+                        last_event_type = %s,
+                        last_event_data = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE blog_id = %s
+                    RETURNING state_id, current_stage, iteration, is_completed, updated_at
+                """, (stage, iteration, is_completed, event_type,
+                      json.dumps(event_data) if event_data else None, blog_id))
+            else:
+                # Insert new record
+                cur.execute("""
+                    INSERT INTO blog_generation_state 
+                    (blog_id, current_stage, iteration, is_completed, last_event_type, last_event_data)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING state_id, current_stage, iteration, is_completed, updated_at
+                """, (blog_id, stage, iteration, is_completed, event_type, 
+                      json.dumps(event_data) if event_data else None))
+            
+            return cur.fetchone()
+
+    def get_blog_details(self, blog_id: str) -> dict:
+        """Get comprehensive blog details including search terms and results"""
+        with self.get_cursor() as cur:
+            # Get blog and generation state in a single query
+            cur.execute("""
+                SELECT 
+                    bs.blog_id, bs.blog_topic, bs.status, bs.blog_content, 
+                    bs.created_at, bs.updated_at,
+                    bgs.current_stage, bgs.iteration, bgs.is_completed, 
+                    bgs.last_event_type, bgs.last_event_data
+                FROM blog_sessions bs
+                LEFT JOIN blog_generation_state bgs ON bs.blog_id = bgs.blog_id
+                WHERE bs.blog_id = %s
+            """, (blog_id,))
+            blog = cur.fetchone()
+            
+            if not blog:
+                return None
+            
+            # Extract generation state from the main query into a nested object
+            blog['generation_state'] = {
+                'current_stage': blog.pop('current_stage', None),
+                'iteration': blog.pop('iteration', None),
+                'is_completed': blog.pop('is_completed', None),
+                'last_event_type': blog.pop('last_event_type', None),
+                'last_event_data': blog.pop('last_event_data', None)
+            }
+            
+            # Get search terms and results in a single query
+            cur.execute("""
+                SELECT 
+                    bst.term_id, bst.search_term, bst.created_at,
+                    bsr.result_id, bsr.title, bsr.url, bsr.description, bsr.summary
+                FROM blog_search_terms bst
+                LEFT JOIN blog_search_results bsr ON bst.term_id = bsr.term_id
+                WHERE bst.blog_id = %s
+                ORDER BY bst.created_at ASC, bsr.created_at ASC
+            """, (blog_id,))
+            
+            search_data = cur.fetchall()
+            
+            # Organize search terms and results
+            terms = {}
+            results = []
+            
+            for row in search_data:
+                term_id = row['term_id']
+                
+                # Add term if not already added
+                if term_id not in terms:
+                    terms[term_id] = {
+                        'term_id': term_id,
+                        'search_term': row['search_term'],
+                        'created_at': row['created_at']
+                    }
+                
+                # Add result if it exists
+                if row['result_id']:
+                    results.append({
+                        'result_id': row['result_id'],
+                        'term_id': term_id,
+                        'title': row['title'],
+                        'url': row['url'],
+                        'description': row['description'],
+                        'summary': row['summary']
+                    })
+            
+            blog['search_terms'] = list(terms.values())
+            blog['search_results'] = results
+            
+            return blog
+
+    def create_pending_blog(self, blog_id: str, topic: str) -> dict:
+        """Create a new pending blog or update if it already exists"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                INSERT INTO pending_blogs (blog_id, topic)
+                VALUES (%s, %s)
+                ON CONFLICT (blog_id) DO UPDATE
+                SET topic = EXCLUDED.topic
+                RETURNING blog_id, topic, current_stage, created_at
+            """, (blog_id, topic))
+            return cur.fetchone()
+
+    def delete_pending_blog(self, blog_id: str) -> None:
+        """Delete a pending blog"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                DELETE FROM pending_blogs
+                WHERE blog_id = %s
+            """, (blog_id,))
+
+    def get_user_blogs(self, user_id: str) -> List[dict]:
+        """Get all blog sessions for a user"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                SELECT blog_id, blog_topic, status, created_at, updated_at
+                FROM blog_sessions
+                WHERE user_id = %s
+                ORDER BY updated_at DESC
+            """, (user_id,))
+            return cur.fetchall()
+
+    def get_pending_blog_by_id(self, blog_id: str) -> Optional[dict]:
+        """Get pending blog by blog_id
+        
+        Returns the blog session with additional pending info if it exists
+        """
+        with self.get_cursor() as cur:
+            cur.execute("""
+                SELECT bs.blog_id, bs.user_id, bs.blog_topic, bs.status, bs.blog_content,
+                       bs.created_at, bs.updated_at, pb.current_stage
+                FROM blog_sessions bs
+                JOIN pending_blogs pb ON bs.blog_id = pb.blog_id
+                WHERE bs.blog_id = %s
+            """, (blog_id,))
+            
+            return cur.fetchone()
+
+    def get_pending_blog(self, user_id: str, topic: str = None) -> Optional[dict]:
+        """DEPRECATED: Use get_pending_blog_by_id instead.
+        
+        Get pending blog for a user, optionally filtered by topic
+        """
+        with self.get_cursor() as cur:
+            if topic:
+                # Search by both user and topic
+                cur.execute("""
+                    SELECT bs.blog_id, bs.user_id, bs.blog_topic, bs.status, bs.blog_content,
+                           bs.created_at, bs.updated_at, pb.current_stage
+                    FROM blog_sessions bs
+                    JOIN pending_blogs pb ON bs.blog_id = pb.blog_id
+                    WHERE bs.user_id = %s AND bs.blog_topic = %s
+                    LIMIT 1
+                """, (user_id, topic))
+            else:
+                # Search by user only
+                cur.execute("""
+                    SELECT bs.blog_id, bs.user_id, bs.blog_topic, bs.status, bs.blog_content,
+                           bs.created_at, bs.updated_at, pb.current_stage
+                    FROM blog_sessions bs
+                    JOIN pending_blogs pb ON bs.blog_id = pb.blog_id
+                    WHERE bs.user_id = %s
+                    ORDER BY bs.updated_at DESC
+                    LIMIT 1
+                """, (user_id,))
+            
+            return cur.fetchone()
+
+    def get_blog_state(self, blog_id: str) -> Optional[dict]:
+        """Get the current generation state for a blog"""
+        with self.get_cursor() as cur:
+            cur.execute("""
+                SELECT current_stage, iteration, is_completed, last_event_type, last_event_data
+                FROM blog_generation_state
+                WHERE blog_id = %s
+            """, (blog_id,))
+            return cur.fetchone()
+
     def close(self):
         """Close the database connection"""
         self.conn.close()

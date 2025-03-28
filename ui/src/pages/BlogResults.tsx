@@ -450,6 +450,7 @@ type BlogGenerationState = {
   blogContent: string[];
   error: string | null;
   isComplete: boolean;
+  inProgress: boolean;
   completeBlog: {
     topic: string;
     blog_plan: string;
@@ -463,7 +464,7 @@ const createEventSource = (url: string, options: any) => new EventSourcePolyfill
 function BlogResults() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const topic = searchParams.get('topic');
+  const blog_id = searchParams.get('blog_id');
   
   const thinkingRef = useRef<HTMLDivElement>(null);
   const blogContentRef = useRef<HTMLDivElement>(null);
@@ -486,6 +487,7 @@ function BlogResults() {
     blogContent: [],
     error: null,
     isComplete: false,
+    inProgress: false,
     completeBlog: null
   });
 
@@ -643,7 +645,7 @@ function BlogResults() {
 
   // Track reading progress on scroll
   useEffect(() => {
-    if (!blogState.blogContent.length) return;
+    if (!blogState.blogContent.length && !blogState.completeBlog) return;
 
     let scrollTimer: NodeJS.Timeout;
     let paragraphObserver: IntersectionObserver | null = null;
@@ -802,6 +804,54 @@ function BlogResults() {
     };
   }, [blogState.blogContent, blogState.completeBlog, focusMode]);
 
+  // Also update the focus mode effect to consider completeBlog
+  useEffect(() => {
+    // Only run this effect when focusMode changes or when the content is available
+    if (!blogContentRef.current || (!blogState.blogContent.length && !blogState.completeBlog)) return;
+    
+    // Get all content elements, not just paragraphs
+    const contentElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
+    
+    if (focusMode) {
+      // Add subtle visual enhancement to paragraphs during focus mode
+      contentElements.forEach(p => {
+        const element = p as HTMLElement;
+        element.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        element.style.opacity = '0.6';
+        element.style.position = 'relative';
+      });
+      
+      // Set styles for the currently focused paragraph (if any)
+      if (focusParagraph) {
+        focusParagraph.style.opacity = '1';
+        focusParagraph.style.transform = 'scale(1.005)';
+        focusParagraph.style.textShadow = '0 0 1px rgba(255, 255, 255, 0.1)';
+      }
+    } else {
+      // Reset all element styles when focus mode is off
+      contentElements.forEach(p => {
+        const element = p as HTMLElement;
+        element.style.opacity = '1';
+        element.style.transform = 'none';
+        element.style.textShadow = 'none';
+        element.style.transition = 'none';
+        element.style.position = 'static';
+      });
+    }
+    
+    // Cleanup function
+    return () => {
+      contentElements.forEach(p => {
+        const element = p as HTMLElement;
+        element.style.opacity = '1';
+        element.style.transform = 'none';
+        element.style.textShadow = 'none';
+        element.style.transition = 'none';
+        element.style.position = 'static';
+      });
+    };
+  }, [focusMode, focusParagraph, blogState.blogContent, blogState.completeBlog]);
+
   // Toggle table of contents visibility
   const toggleTableOfContents = () => {
     setShowTableOfContents(prev => !prev);
@@ -834,15 +884,18 @@ function BlogResults() {
 
   // Fetch blog generation stream and handle events
   const {
+    data: blogData,
+    isLoading,
+    error,
     isFetching
   } = useQuery({
-    queryKey: ['blogGeneration', topic],
+    queryKey: ['blogGeneration', blog_id],
     queryFn: ({ queryKey }) => {
-      if (!queryKey[1]) throw new Error('No topic provided');
+      if (!queryKey[1]) throw new Error('No blog_id provided');
       
       return new Promise((resolve, reject) => {
         const eventSource = createEventSource(
-          `http://localhost:8000/stream-blog-generation?topic=${encodeURIComponent(queryKey[1] as string)}`,
+          `http://localhost:8000/stream-blog-generation?blog_id=${queryKey[1] as string}`,
           {
             headers: { 'Accept': 'text/event-stream' },
             heartbeatTimeout: 300000, // 5 minutes
@@ -939,13 +992,27 @@ function BlogResults() {
 
         eventSource.addEventListener('complete', (e: MessageEvent) => {
           const completeData = JSON.parse(e.data);
+          console.log(completeData);
           setBlogState(prev => ({
             ...prev,
             isComplete: true,
+            inProgress: false,
             completeBlog: completeData
           }));
           eventSource.close();
           resolve(completeData);
+        });
+
+        eventSource.addEventListener('in_progress', (e: MessageEvent) => {
+          const progressData = JSON.parse(e.data);
+          setBlogState(prev => ({
+            ...prev,
+            status: progressData.status,
+            isComplete: false,
+            inProgress: true
+          }));
+          eventSource.close();
+          resolve(progressData);
         });
 
         eventSource.addEventListener('error', (e: MessageEvent) => {
@@ -959,7 +1026,7 @@ function BlogResults() {
         });
       });
     },
-    enabled: !!topic,
+    enabled: !!blog_id,
     retry: false,
   });
 
@@ -1000,7 +1067,7 @@ function BlogResults() {
             
             <div className="flex items-center gap-4 float-animation">
               <span className="text-5xl font-display tracking-tight font-bold enhanced-shimmer">
-                Researching "{topic}"
+                Researching
               </span>
             </div>
             
@@ -1397,73 +1464,6 @@ function BlogResults() {
     );
   };
 
-  // Load and apply styles for focus mode via useEffect to ensure proper DOM manipulation
-  useEffect(() => {
-    // Only run this effect when focusMode changes or when the content is available
-    if (!blogContentRef.current || !blogState.blogContent.length) return;
-    
-    // Get all content elements, not just paragraphs
-    const contentElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
-    
-    if (focusMode) {
-      // Add subtle visual enhancement to paragraphs during focus mode
-      contentElements.forEach(p => {
-        const element = p as HTMLElement;
-        element.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-        element.style.opacity = '0.6';
-        element.style.position = 'relative';
-      });
-      
-      // Set styles for the currently focused paragraph (if any)
-      if (focusParagraph) {
-        focusParagraph.style.opacity = '1';
-        focusParagraph.style.transform = 'scale(1.005)';
-        focusParagraph.style.textShadow = '0 0 1px rgba(255, 255, 255, 0.1)';
-      }
-    } else {
-      // Reset all element styles when focus mode is off
-      contentElements.forEach(p => {
-        const element = p as HTMLElement;
-        element.style.opacity = '1';
-        element.style.transform = 'none';
-        element.style.textShadow = 'none';
-        element.style.transition = 'none';
-        element.style.position = 'static';
-      });
-    }
-    
-    // Cleanup function
-    return () => {
-      contentElements.forEach(p => {
-        const element = p as HTMLElement;
-        element.style.opacity = '1';
-        element.style.transform = 'none';
-        element.style.textShadow = 'none';
-        element.style.transition = 'none';
-        element.style.position = 'static';
-      });
-    };
-  }, [focusMode, focusParagraph, blogState.blogContent]);
-
-  // Additional cleanup effect for focus mode on component unmount
-  useEffect(() => {
-    return () => {
-      // Make sure to reset all styling when component unmounts
-      if (blogContentRef.current) {
-        const allElements = blogContentRef.current.querySelectorAll('p, ul, ol, li, table, tr, td, th, blockquote, pre, code');
-        allElements.forEach(el => {
-          const element = el as HTMLElement;
-          element.classList.remove('focus-paragraph');
-          element.style.opacity = '1';
-          element.style.transform = 'none';
-          element.style.textShadow = 'none';
-          element.style.transition = 'none';
-          element.style.position = 'static';
-        });
-      }
-    };
-  }, []);
-
   return (
     <div className="min-h-screen bg-[#1E1F1C] text-white relative overflow-x-hidden">
       <style>{customStyles}</style>
@@ -1494,11 +1494,32 @@ function BlogResults() {
           </div>
         )}
 
+        {/* In Progress State - Blog is being written */}
+        {!blogState.error && blogState.inProgress && (
+          <div className="max-w-2xl mx-auto my-12 p-8 glass-effect rounded-2xl text-center">
+            <div className="flex flex-col items-center justify-center gap-6">
+              <Loader2 className="w-16 h-16 text-[#F2EEC8]/80 animate-spin" />
+              <h3 className="text-3xl font-display font-semibold text-[#F2EEC8]">Blog is being written</h3>
+              <p className="text-white/80 text-lg">
+                Your blog is currently in progress. Status: {blogState.status}
+              </p>
+              <Button 
+                onClick={() => navigate('/')} 
+                className="mt-4 bg-[#F2EEC8]/10 text-[#F2EEC8] hover:bg-[#F2EEC8]/20
+                         px-6 py-3 rounded-full font-medium transition-all duration-300
+                         border border-[#F2EEC8]/30"
+              >
+                Return Home
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Loading State - Research Phase */}
-        {isFetching && !blogState.error && !blogState.blogContent.length && renderResearchPhase()}
+        {isFetching && !blogState.error && !blogState.inProgress && !blogState.isComplete && !blogState.blogContent.length && renderResearchPhase()}
 
         {/* Blog Content */}
-        {blogState.blogContent.length > 0 && (
+        {(blogState.blogContent.length > 0 || (blogState.isComplete && blogState.completeBlog)) && !blogState.inProgress && (
           <>
             <div className="pb-8 mb-12 border-b border-[#F2EEC8]/10">
               <div className="flex items-center gap-4 text-[#F2EEC8]/70 text-sm animate-fade-in-up flex-wrap">
@@ -1532,7 +1553,7 @@ function BlogResults() {
         <div className="noise-texture opacity-5"></div>
         <div className="container mx-auto h-full">
           {/* Show different bottom bar content based on whether blog content is showing */}
-          {blogState.blogContent.length > 0 ? (
+          {(blogState.blogContent.length > 0 || (blogState.isComplete && blogState.completeBlog)) && !blogState.inProgress ? (
             <div className="flex items-center justify-between px-6 h-full">
               <div className="flex items-center gap-6">
                 <div

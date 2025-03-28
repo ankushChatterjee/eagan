@@ -120,6 +120,86 @@ async def get_chat_details(chat_id: str):
             content={"error": "Failed to fetch chat details"}
         )
 
+@app.post("/create-pending-blog")
+async def create_pending_blog(request: Request):
+    try:
+        body = await request.json()
+        blog_topic = body.get("blog_topic")
+        user_id = body.get("user_id", "anonymous")
+        
+        if not blog_topic:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "blog_topic is required"}
+            )
+            
+        # Create a new blog session
+        blog_session = database.create_blog_session(user_id, blog_topic)
+        
+        return JSONResponse({
+            "status": "success",
+            "blog_id": blog_session['blog_id'],
+            "blog_topic": blog_session['blog_topic'],
+            "created_at": blog_session['created_at'].isoformat()
+        })
+    except Exception as e:
+        logging.error(f"Error creating pending blog: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to create pending blog: {str(e)}"}
+        )
+
+@app.get("/list-blogs")
+async def list_blogs(user_id: str = "anonymous"):
+    try:
+        blogs = database.get_user_blogs(user_id)
+        # Convert datetime objects to strings
+        for blog in blogs:
+            blog['created_at'] = blog['created_at'].isoformat()
+            blog['updated_at'] = blog['updated_at'].isoformat()
+        return JSONResponse({
+            "status": "success",
+            "blogs": blogs
+        })
+    except Exception as e:
+        logging.error(f"Error listing blogs for user {user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to list blogs"}
+        )
+
+@app.get("/blog-details/{blog_id}")
+async def get_blog_details(blog_id: str):
+    try:
+        blog_details = database.get_blog_details(blog_id)
+        if not blog_details:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Blog not found"}
+            )
+        
+        # Convert datetime objects to strings
+        if blog_details.get('created_at'):
+            blog_details['created_at'] = blog_details['created_at'].isoformat()
+        if blog_details.get('updated_at'):
+            blog_details['updated_at'] = blog_details['updated_at'].isoformat()
+            
+        # Convert datetime objects in search terms
+        for term in blog_details.get('search_terms', []):
+            if term.get('created_at'):
+                term['created_at'] = term['created_at'].isoformat()
+                
+        return JSONResponse({
+            "status": "success",
+            "blog_details": blog_details
+        })
+    except Exception as e:
+        logging.error(f"Error fetching blog details for blog_id {blog_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to fetch blog details: {str(e)}"}
+        )
+
 @app.get("/stream-search-with-history")
 async def stream_search_with_history_endpoint(
     request: Request,
@@ -142,18 +222,13 @@ async def stream_search_with_history_endpoint(
 @app.get("/stream-blog-generation")
 async def stream_blog_generation_endpoint(
     request: Request,
-    topic: str,
-    user_id: str = "anonymous"
+    blog_id: str
 ):
-    if not topic:
-        return {"error": "No topic provided"}
-    country = get_country_from_request(request)
+    if not blog_id:
+        return {"error": "No blog_id provided"}
+    
     return StreamingResponse(
-        stream_blog_generation(
-            topic=topic,
-            user_id=user_id,
-            country=country
-        ),
+        stream_blog_generation(blog_id),
         media_type="text/event-stream"
     )
 

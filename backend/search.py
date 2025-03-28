@@ -377,8 +377,8 @@ async def test_search():
 async def search_sync(query: str, country: str = "US", chat_history: list = None):
     try:
         # Perform web search and get results
-        breakdown_terms = breakdown(query, is_follow_up=False, history=None)
-        search_results, detailed_content = web_search(breakdown_terms, country)
+       # breakdown_terms = breakdown(query, is_follow_up=False, history=None)
+        search_results, detailed_content = web_search([query], country)
         search_results = deduplicate_results(search_results)
         
         # Convert to text and prepare for analysis
