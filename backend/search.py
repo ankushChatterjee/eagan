@@ -39,6 +39,20 @@ def brave_search(query: str, country: str) -> dict:
     )
     return response.json()
 
+def brave_image_search(query: str, country: str) -> dict:
+    headers = {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'X-Subscription-Token': os.getenv('BRAVE_API_KEY_BASE_AI')
+    }
+    response = requests.get(
+        'https://api.search.brave.com/res/v1/images/search',
+        params={'q': query, 'count': brave_search_size, 'country': country},
+        headers=headers
+    )
+    return response.json()
+    
+
 
 def breakdown(query: str = None, is_follow_up: bool = False, history: str = None):
     if query is None:

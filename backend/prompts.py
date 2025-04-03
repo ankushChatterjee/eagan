@@ -182,6 +182,9 @@ The topic would be given in the <topic></topic> tag.
 
 The context would be given in the <context></context> tag. This context is your knowledge base, study the materials and write the blog post from this knowledge base.
 
+Additionally, you would be given an list of images in the <images></images> tag. These images are relevant to the blog post. Use these images to make the blog post more engaging.
+Use a maximum of 5 images. Use the title of the image to determine which images to use. Alwats make sure the image is relevant to the text around it and add an alt text.
+                             
 OUTPUT THE BLOG POST AND NOTHING ELSE. JUST THE BLOG POST.
                              
 Before writing the blog post, think step by step about the blog post and create a plan (DO NOT OUTPUT THE PLAN):
@@ -227,6 +230,10 @@ ${topic}
 <context>
 ${context}
 </context>
+                             
+<images>
+${images}
+</images>
 """)
 
 reflect_system_prompt = Template("""

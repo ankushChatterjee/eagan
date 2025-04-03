@@ -12,6 +12,8 @@ import { useState, useEffect, useRef } from 'react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import ThinkingBox from "@/components/ThinkingBox";
+// Import for components prop type
+import { Components } from 'react-markdown';
 
 // Custom shimmer animation styles
 const customStyles = `
@@ -436,6 +438,480 @@ const customStyles = `
     mix-blend-mode: multiply;
     transition: opacity 0.6s ease;
   }
+
+  @keyframes float-particle {
+    0%, 100% { transform: translateY(0) translateX(0); opacity: 0.4; }
+    50% { transform: translateY(-10px) translateX(5px); opacity: 0.8; }
+  }
+
+  @keyframes ripple {
+    0% { transform: scale(0.8); opacity: 0.8; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  @keyframes data-flow {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .brain-wave {
+    position: relative;
+    height: 30px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .wave-segment {
+    position: absolute;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(242, 238, 200, 0.4), rgba(242, 238, 200, 0.8), rgba(242, 238, 200, 0.4));
+    animation: data-flow 2s linear infinite;
+  }
+
+  .generation-phase-indicator {
+    position: relative;
+    display: flex;
+    gap: 4px;
+    height: 30px;
+    padding: 0 12px;
+    align-items: center;
+  }
+
+  .phase-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(242, 238, 200, 0.3);
+    position: relative;
+  }
+
+  .phase-dot.active {
+    background: rgba(242, 238, 200, 0.9);
+  }
+
+  .phase-dot.active::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(242, 238, 200, 0.6);
+    transform: translate(-50%, -50%);
+    animation: ripple 1.5s ease-out infinite;
+  }
+
+  .phase-dot.completed {
+    background: rgba(242, 238, 200, 0.9);
+  }
+
+  .phase-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .phase-icon.active {
+    transform: scale(1.1);
+  }
+
+  .phase-path {
+    height: 2px;
+    flex-grow: 1;
+    background: rgba(242, 238, 200, 0.2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .phase-path.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 30%;
+    background: linear-gradient(90deg, rgba(242, 238, 200, 0), rgba(242, 238, 200, 0.9), rgba(242, 238, 200, 0));
+    animation: data-flow 1.5s ease-in-out infinite;
+  }
+
+  .phase-path.completed {
+    background: rgba(242, 238, 200, 0.6);
+  }
+
+  .phase-tooltip {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 31, 28, 0.95);
+    border: 1px solid rgba(242, 238, 200, 0.2);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+
+  .phase-icon:hover .phase-tooltip {
+    opacity: 1;
+  }
+
+  .idea-particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: rgba(242, 238, 200, 0.8);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: float-particle 3s infinite;
+  }
+
+  .idea-particle:nth-child(1) { top: 5px; left: 5px; animation-delay: 0s; }
+  .idea-particle:nth-child(2) { top: 8px; left: 15px; animation-delay: 0.5s; }
+  .idea-particle:nth-child(3) { top: 15px; left: 8px; animation-delay: 1s; }
+  .idea-particle:nth-child(4) { top: 12px; left: 20px; animation-delay: 1.5s; }
+  .idea-particle:nth-child(5) { top: 18px; left: 12px; animation-delay: 2s; }
+
+  @keyframes typing-cursor {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes subtle-pulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+  }
+
+  .typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+  }
+  
+  .typing-dot {
+    width: 4px;
+    height: 4px;
+    background-color: rgba(242, 238, 200, 0.8);
+    border-radius: 50%;
+    animation: subtle-pulse 1.5s infinite;
+  }
+  
+  .typing-dot:nth-child(1) { animation-delay: 0s; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  
+  .floating-status {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 31, 28, 0.9);
+    border: 1px solid rgba(242, 238, 200, 0.2);
+    border-radius: 20px;
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    z-index: 50;
+    white-space: nowrap;
+    max-width: 90%;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+  }
+  
+  .floating-status.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  
+  .floating-status .status-text {
+    font-size: 12px;
+    color: rgba(242, 238, 200, 0.9);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 350px;
+  }
+  
+  .floating-status .pulse-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    background-color: rgba(242, 238, 200, 0.9);
+    border-radius: 50%;
+  }
+  
+  .floating-status .pulse-dot::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(242, 238, 200, 0.5);
+    border-radius: 50%;
+    animation: ripple 1.5s infinite;
+    transform-origin: center;
+  }
+  
+  .phase-container {
+    height: 30px;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .bottom-bar-container {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    width: 100%;
+    align-items: center;
+    height: 100%;
+  }
+
+  // Update the blog-end-marker styles to ensure perfect centering
+  .blog-end-marker {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 6rem auto 8rem;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+    text-align: center;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  .blog-end-marker:hover {
+    opacity: 1;
+  }
+
+  .blog-end-marker svg {
+    filter: drop-shadow(0 2px 5px rgba(242, 238, 200, 0.15));
+    margin-bottom: 1.5rem;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .blog-end-attribution {
+    font-style: italic;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.02em;
+    font-weight: 300;
+    margin-top: 0.5rem;
+  }
+
+  .blog-typography img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    display: block;
+    margin: 2rem auto;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(242, 238, 200, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    max-height: 70vh; /* General max-height for all images */
+    object-fit: contain;
+  }
+
+  .blog-typography img:hover {
+    transform: scale(1.01);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Add max-height constraint for very tall images */
+  .blog-typography img.tall,
+  .blog-typography img[height^="8"],
+  .blog-typography img[height^="9"],
+  .blog-typography img[height^="1"],
+  .blog-typography img[height*="00"] {
+    max-height: 80vh;
+    object-fit: contain;
+    margin: 3rem auto;
+  }
+
+  /* Better handling for very wide images */
+  .blog-typography img.wide,
+  .blog-typography img[width^="1"],
+  .blog-typography img[width*="00"] {
+    max-width: min(100%, 860px);
+    width: 100%;
+    object-fit: contain;
+  }
+
+  /* Special handling for panorama images with very wide aspect ratios */
+  .blog-typography img[width][height] {
+    max-height: 70vh;
+    object-position: center;
+  }
+
+  /* Panorama images - extra wide */
+  .blog-typography img.panorama {
+    width: 100%;
+    max-width: 100%;
+    max-height: 50vh;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 12px;
+  }
+
+  /* Zoomed image view styling */
+  .zoomed-image-container {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    cursor: zoom-out;
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .zoomed-image {
+    max-height: 90vh;
+    max-width: 90vw;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    animation: scale-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scale-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  /* Figure and caption styling */
+  .blog-typography figure {
+    margin: 2.5rem auto;
+    max-width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .blog-typography figure img {
+    max-height: 70vh;
+    width: auto;
+    object-fit: contain;
+  }
+
+  .blog-typography figcaption {
+    text-align: center;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-top: 0.75rem;
+    max-width: 90%;
+  }
+
+  /* Responsive image sizing for different screen sizes */
+  @media (max-width: 768px) {
+    .blog-typography img {
+      max-width: 100%;
+      margin: 1.5rem auto;
+      max-height: 60vh;
+    }
+    
+    .blog-typography figure {
+      max-height: 70vh;
+    }
+  }
+
+  /* Special styling for small icons and badges */
+  .blog-typography img[width="16"],
+  .blog-typography img[width="24"],
+  .blog-typography img[width="32"] {
+    display: inline-block;
+    margin: 0 0.25rem;
+    vertical-align: middle;
+    box-shadow: none;
+    border: none;
+  }
+
+  /* Image groups for side-by-side images */
+  .blog-typography .image-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin: 2rem auto;
+  }
+
+  .blog-typography .image-group img {
+    margin: 0;
+    flex: 1 1 300px;
+    max-width: calc(50% - 0.5rem);
+    object-fit: cover;
+  }
+
+  /* Image gallery - a class that can be used in markdown for side-by-side images */
+  .blog-typography .image-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 2rem auto;
+  }
+
+  .blog-typography .image-gallery img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    margin: 0;
+    aspect-ratio: 16 / 9;
+  }
+
+  /* Image gallery with square images */
+  .blog-typography .image-gallery.square img {
+    aspect-ratio: 1 / 1;
+  }
+
+  /* Image gallery with portrait images */
+  .blog-typography .image-gallery.portrait img {
+    aspect-ratio: 3 / 4;
+  }
+
+  @media (max-width: 640px) {
+    .blog-typography .image-group img {
+      max-width: 100%;
+    }
+  }
+
+  /* Loading state for images */
+  .blog-typography img.loading {
+    min-height: 200px;
+    background: linear-gradient(110deg, rgba(242, 238, 200, 0.05) 30%, rgba(242, 238, 200, 0.1) 50%, rgba(242, 238, 200, 0.05) 70%);
+    background-size: 200% 100%;
+    animation: enhanced-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .blog-typography ul,
+  .blog-typography ol {
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 1.5rem;
+  }
 `;
 
 // Types for the blog generation state
@@ -460,6 +936,47 @@ type BlogGenerationState = {
 
 // Fix for EventSource type issues
 const createEventSource = (url: string, options: any) => new EventSourcePolyfill(url, options);
+
+// Custom components for the markdown renderer
+const customComponents: Partial<Components> = {
+  img: ({ node, ...props }) => {
+    // Handle image loading and optimization
+    const [loaded, setLoaded] = useState(false);
+    
+    // If image has a title, use it as a caption in a figure element
+    if (props.title) {
+      return (
+        <figure>
+          <img
+            {...props}
+            className={`${!loaded ? 'loading' : ''} ${props.className || ''}`}
+            onLoad={() => setLoaded(true)}
+            onError={(e) => {
+              console.error(`Failed to load image: ${props.src}`);
+              e.currentTarget.alt = `Image failed to load (${props.alt || 'no description'})`;
+            }}
+            loading="lazy"
+          />
+          <figcaption>{props.title}</figcaption>
+        </figure>
+      );
+    }
+    
+    // Regular image without caption
+    return (
+      <img
+        {...props}
+        className={`${!loaded ? 'loading' : ''} ${props.className || ''}`}
+        onLoad={() => setLoaded(true)}
+        onError={(e) => {
+          console.error(`Failed to load image: ${props.src}`);
+          e.currentTarget.alt = `Image failed to load (${props.alt || 'no description'})`;
+        }}
+        loading="lazy"
+      />
+    );
+  }
+};
 
 function BlogResults() {
   const navigate = useNavigate();
@@ -1030,6 +1547,39 @@ function BlogResults() {
     retry: false,
   });
 
+  // Add the getBlogPhase function to determine current phase
+  const getBlogPhase = () => {
+    if (blogState.searchActivity.length > 0 && blogState.searchTerms.length === 0) {
+      return 0; // Research preparation
+    } else if (blogState.searchTerms.length > 0 && blogState.scrapeActivity.length === 0) {
+      return 1; // Keyword extraction
+    } else if (blogState.scrapeActivity.length > 0 && !blogState.reflectionProgress) {
+      return 2; // Information gathering
+    } else if (blogState.reflectionProgress) {
+      return 3; // Analysis and reflection
+    } else if (blogState.thinkingContent.length > 0 && blogState.blogContent.length === 0) {
+      return 4; // Content planning
+    } else if (blogState.blogContent.length > 0 && !blogState.isComplete) {
+      return 5; // Typing out blog
+    } else {
+      return 0; // Default to first phase
+    }
+  };
+
+  // New function to get a user-friendly status message
+  const getStatusMessage = () => {
+    const phase = getBlogPhase();
+    switch (phase) {
+      case 0: return "Researching topic...";
+      case 1: return "Extracting key information...";
+      case 2: return "Gathering in-depth information...";
+      case 3: return `Reflecting on information (${blogState.reflectionProgress?.iteration || 0}/${blogState.reflectionProgress?.max_iterations || 0})`;
+      case 4: return "Planning blog structure...";
+      case 5: return "Writing blog content...";
+      default: return blogState.status;
+    }
+  };
+
   const renderResearchPhase = () => {
     const { 
       searchTerms, 
@@ -1331,6 +1881,149 @@ function BlogResults() {
       ? blogState.completeBlog.blog_content
       : blogState.blogContent.join('');
 
+    // Image component with loading state and error handling for Markdown
+    const ImageComponent = ({ node, ...props }: any) => {
+      const [loaded, setLoaded] = useState(false);
+      const [zoomed, setZoomed] = useState(false);
+      
+      // Determine image type based on dimensions (if available)
+      const getImageClasses = () => {
+        const width = props.width ? parseInt(props.width, 10) : 0;
+        const height = props.height ? parseInt(props.height, 10) : 0;
+        
+        // Default classes
+        let classes = `${!loaded ? 'loading' : ''} ${props.className || ''}`;
+        
+        // Add zoom cursor
+        classes += ' cursor-zoom-in transition-transform hover:scale-[1.01]';
+        
+        // Add size-specific classes if dimensions are available
+        if (width && height) {
+          // Very tall images
+          if (height > width * 1.5) {
+            classes += ' tall';
+          }
+          
+          // Very wide images
+          if (width > height * 1.5) {
+            classes += ' wide';
+          }
+          
+          // Panorama
+          if (width > height * 2.5) {
+            classes += ' panorama';
+          }
+        }
+        
+        return classes;
+      };
+      
+      // Handle zoom toggle
+      const toggleZoom = () => {
+        setZoomed(!zoomed);
+      };
+      
+      // Add escape key handler for zoomed mode
+      useEffect(() => {
+        if (!zoomed) return;
+        
+        const handleEscape = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            setZoomed(false);
+          }
+        };
+        
+        // Prevent scrolling when zoomed
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleEscape);
+        
+        return () => {
+          document.body.style.overflow = '';
+          window.removeEventListener('keydown', handleEscape);
+        };
+      }, [zoomed]);
+      
+      // If image has a title, use it as a caption in a figure element
+      if (props.title) {
+        return (
+          <>
+            <figure>
+              <img
+                {...props}
+                className={getImageClasses()}
+                onLoad={() => setLoaded(true)}
+                onError={(e) => {
+                  console.error(`Failed to load image: ${props.src}`);
+                  e.currentTarget.alt = `Image failed to load (${props.alt || 'no description'})`;
+                }}
+                loading="lazy"
+                onClick={toggleZoom}
+              />
+              <figcaption>{props.title}</figcaption>
+            </figure>
+            
+            {zoomed && (
+              <div 
+                className="zoomed-image-container"
+                onClick={toggleZoom}
+              >
+                <img 
+                  src={props.src} 
+                  alt={props.alt}
+                  width={props.width}
+                  height={props.height}
+                  className="zoomed-image" 
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <div className="absolute bottom-4 left-0 right-0 text-center text-white/60 text-sm">
+                  <div className="font-medium text-white/90 mb-1">{props.title}</div>
+                  <div>Click anywhere or press ESC to close</div>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      }
+      
+      // Regular image without caption
+      return (
+        <>
+          <img
+            {...props}
+            className={getImageClasses()}
+            onLoad={() => setLoaded(true)}
+            onError={(e) => {
+              console.error(`Failed to load image: ${props.src}`);
+              e.currentTarget.alt = `Image failed to load (${props.alt || 'no description'})`;
+            }}
+            loading="lazy"
+            onClick={toggleZoom}
+          />
+          
+          {zoomed && (
+            <div 
+              className="zoomed-image-container"
+              onClick={toggleZoom}
+            >
+              <img 
+                src={props.src} 
+                alt={props.alt}
+                width={props.width}
+                height={props.height}
+                className="zoomed-image" 
+                onClick={(e) => e.stopPropagation()}
+              />
+              {props.alt && (
+                <div className="absolute bottom-4 left-0 right-0 text-center text-white/70 text-sm">
+                  Click anywhere or press ESC to close
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      );
+    };
+
     return (
       <div className="mx-auto blog-container animate-fade-in pb-32" ref={blogContentRef}>
         {/* Top reading progress indicator */}
@@ -1448,6 +2141,7 @@ function BlogResults() {
             "prose-code:text-[#F2EEC8] prose-code:bg-[#F2EEC8]/10 prose-code:px-2 prose-code:py-0.5 prose-code:rounded-md",
             "prose-blockquote:border-l-[#F2EEC8] prose-blockquote:bg-white/5 prose-blockquote:rounded-lg prose-blockquote:py-2",
             "prose-em:text-white/85",
+            "prose-img:max-w-full prose-img:rounded-lg prose-img:my-8",
             "selection:bg-[#F2EEC8]/20",
             "selection:text-white",
             focusMode && "focus-reading-mode"
@@ -1456,9 +2150,27 @@ function BlogResults() {
           <MarkdownRender
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw, rehypeSanitize, rehypePrism]}
+            components={{
+              img: ImageComponent
+            }}
           >
             {displayBlogContent}
           </MarkdownRender> 
+
+          {/* Decorative end marker */}
+          {(blogState.isComplete || blogState.blogContent.length > 0) && (
+            <div className="blog-end-marker mx-auto" style={{ maxWidth: 'none' }}>
+              <svg width="100" height="30" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Simple bookish fleuron design */}
+                <path d="M50 5L40 15L50 25L60 15L50 5Z" stroke="rgba(242, 238, 200, 0.6)" strokeWidth="1" fill="none" />
+                <path d="M20 15H40" stroke="rgba(242, 238, 200, 0.5)" strokeWidth="1" strokeLinecap="round" />
+                <path d="M60 15H80" stroke="rgba(242, 238, 200, 0.5)" strokeWidth="1" strokeLinecap="round" />
+                <path d="M45 10L50 15L55 10" stroke="rgba(242, 238, 200, 0.4)" strokeWidth="1" strokeLinecap="round" />
+                <path d="M45 20L50 15L55 20" stroke="rgba(242, 238, 200, 0.4)" strokeWidth="1" strokeLinecap="round" />
+              </svg>
+              <div className="blog-end-attribution">Generated using AI by Eagan. Proceed with Care</div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1551,6 +2263,11 @@ function BlogResults() {
       <div className="fixed bottom-0 left-0 right-0 glass-effect-subtle z-50">
         {/* Noise texture overlay */}
         <div className="noise-texture opacity-5"></div>
+        {/* Floating status pill */}
+        <div className={`floating-status ${isFetching && !blogState.error && !blogState.isComplete ? 'visible' : ''}`}>
+          <div className="pulse-dot"></div>
+          <div className="status-text">{blogState.status}</div>
+        </div>
         <div className="container mx-auto h-full">
           {/* Show different bottom bar content based on whether blog content is showing */}
           {(blogState.blogContent.length > 0 || (blogState.isComplete && blogState.completeBlog)) && !blogState.inProgress ? (
@@ -1623,7 +2340,8 @@ function BlogResults() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between px-6 h-full">
+            <div className="bottom-bar-container px-6">
+              {/* Logo section - fixed width */}
               <div
                 onClick={() => navigate('/')}
                 className="flex items-center gap-3 cursor-pointer group"
@@ -1633,34 +2351,131 @@ function BlogResults() {
                 </h2>
               </div>
 
-              {/* Research progress moved to bottom bar */}
+              {/* Replace the existing indicator with our innovative indicator - centered */}
               {isFetching && !blogState.error && (
-                <div className="flex items-center gap-4 max-w-md">
-                  {blogState.reflectionProgress && (
-                    <>
-                      <div className="flex-1 relative overflow-hidden rounded-full">
-                        <div className="noise-texture opacity-10"></div>
-                        <div className="research-progress h-2 relative z-10">
-                          <div 
-                            className="research-progress-bar" 
-                            style={{ 
-                              width: `${(blogState.reflectionProgress.iteration / blogState.reflectionProgress.max_iterations) * 100}%` 
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                      <span className="text-xs font-medium text-[#F2EEC8]/80 whitespace-nowrap">
-                        {blogState.reflectionProgress.iteration} of {blogState.reflectionProgress.max_iterations}
-                      </span>
-                    </>
-                  )}
-                  <div className="flex items-center gap-2 text-[#F2EEC8]/80 px-3 py-1.5 rounded-full bg-[#F2EEC8]/5 backdrop-blur-sm border border-[#F2EEC8]/10 relative overflow-hidden">
-                    <div className="noise-texture opacity-10"></div>
-                    <Loader2 className="w-3 h-3 animate-spin relative z-10" />
-                    <span className="text-xs font-medium relative z-10">{blogState.status}</span>
+                <div className="flex items-center justify-center">
+                  {/* Blog creation phases indicator */}
+                  <div className="generation-phase-indicator">
+                    {/* Research phase */}
+                    <div className={`phase-icon ${getBlogPhase() >= 0 ? 'active' : ''}`}>
+                      <SearchIcon className={`w-4 h-4 ${getBlogPhase() >= 0 ? 'text-[#F2EEC8]' : 'text-[#F2EEC8]/40'}`} />
+                      <div className="phase-tooltip">Research</div>
+                      {getBlogPhase() === 0 && (
+                        <>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className={`phase-path ${getBlogPhase() > 0 ? 'completed' : getBlogPhase() === 0 ? 'active' : ''}`}></div>
+                    
+                    {/* Keyword extraction phase */}
+                    <div className={`phase-icon ${getBlogPhase() >= 1 ? 'active' : ''}`}>
+                      <ListFilter className={`w-4 h-4 ${getBlogPhase() >= 1 ? 'text-[#F2EEC8]' : 'text-[#F2EEC8]/40'}`} />
+                      <div className="phase-tooltip">Keywords</div>
+                      {getBlogPhase() === 1 && (
+                        <>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className={`phase-path ${getBlogPhase() > 1 ? 'completed' : getBlogPhase() === 1 ? 'active' : ''}`}></div>
+                    
+                    {/* Information gathering phase */}
+                    <div className={`phase-icon ${getBlogPhase() >= 2 ? 'active' : ''}`}>
+                      <BookOpenIcon className={`w-4 h-4 ${getBlogPhase() >= 2 ? 'text-[#F2EEC8]' : 'text-[#F2EEC8]/40'}`} />
+                      <div className="phase-tooltip">Information</div>
+                      {getBlogPhase() === 2 && (
+                        <>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className={`phase-path ${getBlogPhase() > 2 ? 'completed' : getBlogPhase() === 2 ? 'active' : ''}`}></div>
+                    
+                    {/* Analysis phase */}
+                    <div className={`phase-icon ${getBlogPhase() >= 3 ? 'active' : ''}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${getBlogPhase() >= 3 ? 'text-[#F2EEC8]' : 'text-[#F2EEC8]/40'}`}>
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 16v-4"></path>
+                        <path d="M12 8h.01"></path>
+                      </svg>
+                      <div className="phase-tooltip">Analysis</div>
+                      {getBlogPhase() === 3 && (
+                        <>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className={`phase-path ${getBlogPhase() > 3 ? 'completed' : getBlogPhase() === 3 ? 'active' : ''}`}></div>
+                    
+                    {/* Content Planning phase */}
+                    <div className={`phase-icon ${getBlogPhase() >= 4 ? 'active' : ''}`}>
+                      <FileText className={`w-4 h-4 ${getBlogPhase() >= 4 ? 'text-[#F2EEC8]' : 'text-[#F2EEC8]/40'}`} />
+                      <div className="phase-tooltip">Planning</div>
+                      {getBlogPhase() === 4 && (
+                        <>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                          <div className="idea-particle"></div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className={`phase-path ${getBlogPhase() > 4 ? 'completed' : getBlogPhase() === 4 ? 'active' : ''}`}></div>
+                    
+                    {/* Writing phase - new */}
+                    <div className={`phase-icon ${getBlogPhase() >= 5 ? 'active' : ''}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${getBlogPhase() >= 5 ? 'text-[#F2EEC8]' : 'text-[#F2EEC8]/40'}`}>
+                        <path d="M17.5 3H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12.5a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3Z"></path>
+                        <path d="M10 4v5l3.5-2.5L17 9V4"></path>
+                      </svg>
+                      <div className="phase-tooltip">Writing</div>
+                      {getBlogPhase() === 5 && (
+                        <>
+                          <div className="typing-indicator">
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
+              
+              {/* Brain wave animation and reflection progress - fixed width */}
+              <div className="flex items-center justify-end">
+                {/* Brain wave animation - represents AI thinking */}
+                <div className="flex items-center">
+                  <div className="brain-wave w-[100px]">
+                    <div className="wave-segment" style={{ top: '10px', width: '60%', animationDelay: '0s' }}></div>
+                    <div className="wave-segment" style={{ top: '18px', width: '40%', animationDelay: '0.5s' }}></div>
+                    <div className="wave-segment" style={{ top: '14px', width: '70%', animationDelay: '1s' }}></div>
+                  </div>
+                  
+                  {/* Always show phase info in a consistent location */}
+                  <div className="h-[30px] ml-2 flex items-center">
+                    <div className="text-xs font-medium text-[#F2EEC8]/80 whitespace-nowrap">
+                      {getStatusMessage()}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

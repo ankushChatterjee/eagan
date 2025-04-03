@@ -3,14 +3,14 @@ from litellm import completion
 from datetime import datetime
 import re
 import json
-from search import search_sync
+from search import brave_image_search, search_sync
 from prompts import blog_breakdown_prompt, blog_plan_prompt, blog_write_prompt
 from blog.reflection_search import ReflectionSearch
 import asyncio
 
 lite_llm = "groq/qwen-qwq-32b"
 thinking_llm = "groq/deepseek-r1-distill-llama-70b"
-gemini_thinking_llm = "gemini/gemini-2.0-flash-thinking-exp-01-21"
+gemini_thinking_llm = "gemini/gemini-2.5-pro-exp-03-25"
 
 SEARCH_ITERATIONS = 3
 
@@ -71,9 +71,9 @@ def plan_blog(topic: str = None, context: str = None):
         return {"error": "No plan found"}
     return response_content
 
-def write_blog(topic: str = None, context: str = None, plan: str = None):
+def write_blog(topic: str = None, context: str = None, plan: str = None, images: str = None):
     current_date = datetime.now().isoformat()
-    formatted_prompt = blog_write_prompt.substitute(topic=topic, context=context, current_date=current_date, plan=plan)
+    formatted_prompt = blog_write_prompt.substitute(topic=topic, context=context, current_date=current_date, plan=plan, images=images)
 
     response = completion(
         model=gemini_thinking_llm,
@@ -272,6 +272,8 @@ async def stream_blog_generation(blog_id: str = None, user_id: str = None, count
                     
                     search_tasks = [search_sync(term) for term in tool['parameters']]
                     search_results = await asyncio.gather(*search_tasks)
+
+                    image_search_results = brave_image_search(tool['parameters'][0], country)
                     
                     # Process results
                     for term, search in zip(tool['parameters'], search_results):
@@ -279,7 +281,15 @@ async def stream_blog_generation(blog_id: str = None, user_id: str = None, count
                         response_search_results += convert_search_to_text(search['search_results'])
                         yield f"event: search_results\ndata: {json.dumps(len(search['search_results']))}\n\n"
                         db.update_generation_state(blog_id, "reflection", i+1, False, "search_results", {'count': len(search['search_results'])})
-                
+                    
+                    # Process image search results
+                    images_text = ""
+                    for image_results in image_search_results['results']:
+                        image_url = image_results['properties']['url']
+                        image_title = image_results['title']
+                        image_source = image_results['source']
+                        images_text += f"[{image_title}]({image_url}) from {image_source}\n"
+                            
                 if tool['tool'] == "scrape":
                     yield f"event: status\ndata: {json.dumps({'message': 'Reading web pages'})}\n\n"
                     db.update_generation_state(blog_id, "reflection", i+1, False, "status", {'message': 'Reading web pages'})
@@ -343,7 +353,7 @@ async def stream_blog_generation(blog_id: str = None, user_id: str = None, count
         
         # Accumulate blog content while streaming
         full_blog_content = ""
-        for blog_part in write_blog(topic, knowledge_base, blog_plan):
+        for blog_part in write_blog(topic, knowledge_base, blog_plan, images_text):
             full_blog_content += blog_part
             yield f"event: blog_part\ndata: {json.dumps({'content': blog_part})}\n\n"
             # We don't update the generation state for each blog_part to avoid database overload
