@@ -21,7 +21,7 @@ def cleanup_threadpool():
 atexit.register(cleanup_threadpool)
 
 lite_llm_model = "gemini/gemini-2.0-flash-lite"
-llm_model = "gemini/gemini-2.0-flash"
+llm_model = "gemini/gemini-2.5-pro-exp-03-25"
 sample_size = 10
 brave_search_size = 5
 
